@@ -1,0 +1,9 @@
+uploads/
+assets/
+vendor/
+application/logs
+/application/libraries
+/application/third_party
+/application/config
+application/libraries/tcpdf
+logs
