@@ -41,68 +41,150 @@ class Transaction extends CI_Controller {
 
 	}
 
-	public function getSalesorderList()
-	{
-		$data = $row = array();
-          $draw   = isset($_POST['draw']) ? (int)$_POST['draw'] : 1;
-          $start  = isset($_POST['start']) ? (int)$_POST['start'] : 0;
-         $length = isset($_POST['length']) ? (int)$_POST['length'] : 10;
+	// public function getSalesorderList()
+	// {
+	// 	$data = $row = array();
+ //          $draw   = isset($_POST['draw']) ? (int)$_POST['draw'] : 1;
+ //          $start  = isset($_POST['start']) ? (int)$_POST['start'] : 0;
+ //         $length = isset($_POST['length']) ? (int)$_POST['length'] : 10;
          
-            $this->column_search = array('DocNum', 'DocDate','CardName');
-            $sql = "select * from salesorderheader where DocStatus='O'";
+ //            $this->column_search = array('DocNum', 'DocDate','CardName');
+ //            $sql = "select * from salesorderheader where DocStatus='O'";
             
 
-            $sql1 = $sql;
-            if (!empty($_POST['search']['value'])) {
-                $sql .= " AND (";
-            }
-            $i = 0;
-            foreach ($this->column_search as $item) {
-                if (!empty($_POST['search']['value'])) {
-                    $sql .= "$item Like '%" . $_POST['search']['value'] . "%' OR ";
-                }
-                $i++;
-            }
-            if (!empty($_POST['search']['value'])) {
-                $sql = rtrim($sql, ' OR ');
-                $sql .= ")";
-            }
-            $sql.= "  order by id ";
-            $wolimit = $sql;
-            if(!empty($_POST['length']) && $_POST['length'] != -1)
-            {
-                $sql .=" OFFSET $start ROWS FETCH NEXT $length ROWS ONLY";
-            }
+ //            $sql1 = $sql;
+ //            if (!empty($_POST['search']['value'])) {
+ //                $sql .= " AND (";
+ //            }
+ //            $i = 0;
+ //            foreach ($this->column_search as $item) {
+ //                if (!empty($_POST['search']['value'])) {
+ //                    $sql .= "$item Like '%" . $_POST['search']['value'] . "%' OR ";
+ //                }
+ //                $i++;
+ //            }
+ //            if (!empty($_POST['search']['value'])) {
+ //                $sql = rtrim($sql, ' OR ');
+ //                $sql .= ")";
+ //            }
+ //            $sql.= "  order by id ";
+ //            $wolimit = $sql;
+ //            if(!empty($_POST['length']) && $_POST['length'] != -1)
+ //            {
+ //                $sql .=" OFFSET $start ROWS FETCH NEXT $length ROWS ONLY";
+ //            }
 
 
-            $itemdata = $this->db->query($sql)->result();
-            $j = $_POST['start'];
-            foreach ($itemdata as $value) {
-                 $j++;
-        	 $actionbutton ='<a href="'.base_url('Transaction/getItems/'.base64_encode($value->id)).'" class="btn btn-sm btn-info"><i class="fa fa-eye fa-sm"></i> Items</a>';
-            	$data[] = array(
-                   $value->id,
-                   $value->DocDate,
-                   $value->DocNum,
-                   $value->CardName,
-                   $actionbutton
+ //            $itemdata = $this->db->query($sql)->result();
+ //            $j = $_POST['start'];
+ //            foreach ($itemdata as $value) {
+ //                 $j++;
+ //        	 $actionbutton ='<a href="'.base_url('Transaction/getItems/'.base64_encode($value->id)).'" class="btn btn-sm btn-info"><i class="fa fa-eye fa-sm"></i> Items</a>';
+ //            	$data[] = array(
+ //                   $value->id,
+ //                   $value->DocDate,
+ //                   $value->DocNum,
+ //                   $value->CardName,
+ //                   $actionbutton
 
-                );
+ //                );
 
 
                
-            }
-              $output = array(
-                "draw" => $_POST['draw'],
-                "recordsTotal" => $this->db->query($sql1)->num_rows(),
-                "recordsFiltered" => $this->db->query($wolimit)->num_rows(),
-                "data" => $data,
-            );
+ //            }
+ //              $output = array(
+ //                "draw" => $_POST['draw'],
+ //                "recordsTotal" => $this->db->query($sql1)->num_rows(),
+ //                "recordsFiltered" => $this->db->query($wolimit)->num_rows(),
+ //                "data" => $data,
+ //            );
 
-            // Output to JSON format
-            echo json_encode($output);
+ //            // Output to JSON format
+ //            echo json_encode($output);
 
-	}
+	// }
+
+    public function getSalesorderList()
+{
+    $data = array();
+
+    $draw   = (int)$_POST['draw'];
+    $start  = (int)$_POST['start'];
+    $length = (int)$_POST['length'];
+    $search = $_POST['search']['value'];
+
+    $column_search = array('DocNum', 'DocDate', 'CardName');
+
+    /* =======================
+       BASE WHERE CONDITION
+    ======================= */
+    $where = " WHERE DocStatus = 'O' ";
+
+    if (!empty($search)) {
+        $where .= " AND (";
+        foreach ($column_search as $col) {
+            $where .= "$col LIKE '%".$this->db->escape_like_str($search)."%' OR ";
+        }
+        $where = rtrim($where, ' OR ');
+        $where .= ")";
+    }
+
+    /* =======================
+       DATA QUERY (LIMITED)
+    ======================= */
+    $sql = "
+        SELECT id, DocDate, DocNum, CardName
+        FROM salesorderheader
+        $where
+        ORDER BY id
+        OFFSET $start ROWS FETCH NEXT $length ROWS ONLY
+    ";
+
+    $itemdata = $this->db->query($sql, FALSE); // unbuffered
+
+    foreach ($itemdata->result() as $value) {
+
+        $actionbutton =
+            '<a href="'.base_url('Transaction/getItems/'.base64_encode($value->id)).'"
+             class="btn btn-sm btn-info">
+             <i class="fa fa-eye fa-sm"></i> Items</a>';
+
+        $data[] = array(
+            $value->id,
+            $value->DocDate,
+            $value->DocNum,
+            $value->CardName,
+            $actionbutton
+        );
+    }
+
+    /* =======================
+       COUNT QUERIES (SAFE)
+    ======================= */
+
+    // Total records
+    $totalRecords = $this->db->query(
+        "SELECT COUNT(*) AS total FROM salesorderheader WHERE DocStatus='O'"
+    )->row()->total;
+
+    // Filtered records
+    $filteredRecords = $this->db->query(
+        "SELECT COUNT(*) AS total FROM salesorderheader $where"
+    )->row()->total;
+
+    /* =======================
+       RESPONSE
+    ======================= */
+    $output = array(
+        "draw" => $draw,
+        "recordsTotal" => $totalRecords,
+        "recordsFiltered" => $filteredRecords,
+        "data" => $data,
+    );
+
+    echo json_encode($output);
+}
+
 
     public function getItems($id){
 
@@ -572,6 +654,270 @@ public function getProcessesByRouting() {
 
     echo json_encode($result);
 }
+
+public function productionOrder()
+{
+    if($this->session->userdata('user_login_access')!=false)
+    {
+         $data['urldata'] = $this->Access_model->get_menu_data();
+             $access=$this->Access_model->getPermissionByAction();
+             if($access!='success')
+             {
+                $expld=explode('/',$access); $data['heading']=$expld[0]; $data['description']=$expld[1];
+                $data['title'] = 'Something went wrong';
+                $this->load->view('errorPage', $data);
+                return;
+            }
+     
+        $this->load->view('transaction/product_orders');
+    }
+    else{
+
+        redirect(base_url(),'refresh');
+    }
+}
+
+
+   public function getProductOrderList1()
+{
+    $draw   = intval($this->input->post("draw"));
+    $start  = intval($this->input->post("start"));
+    $length = intval($this->input->post("length"));
+
+    // $sql = "
+    //     SELECT id, doc_entry, doc_num, item_code, item_name
+    //     FROM production_order
+    //     ORDER BY id DESC
+    //     OFFSET $start ROWS
+    //     FETCH NEXT $length ROWS ONLY
+    // ";
+
+    $search = $_POST['search']['value'] ?? '';
+
+/* Columns allowed for search */
+$column_search = array(
+    'p.doc_entry',
+    'p.doc_num',
+    'p.product_no',
+    'p.product_name',
+    'p.planned_qty',
+);
+
+/* =======================
+   BASE WHERE CONDITION
+======================= */
+$where = " WHERE p.status != 'C' ";
+
+if (!empty($search)) {
+    $search = $this->db->escape_like_str($search);
+    $where .= " AND (";
+    foreach ($column_search as $col) {
+        $where .= "$col LIKE '%$search%' OR ";
+    }
+    $where = rtrim($where, ' OR ');
+    $where .= ")";
+}
+
+
+
+    // $sql="SELECT p.id, p.doc_entry, p.doc_num, p.product_no, p.product_name,p.planned_qty
+    //         FROM production_order p
+    //         JOIN (
+    //             SELECT product_no, MAX(id) AS max_id
+    //             FROM production_order  WHERE status != 'C'
+    //             GROUP BY product_no
+    //         ) g ON p.product_no = g.product_no AND p.id = g.max_id And p.status!='C'
+    //           $where
+    //         ORDER BY p.id DESC
+    //         OFFSET $start ROWS
+    //         FETCH NEXT $length ROWS ONLY";
+
+
+  $sql = "
+        SELECT p.id, p.doc_entry, p.doc_num, p.item_code, p.item_name,p.product_no,p.product_name,p.planned_qty
+        FROM production_order as p
+        ORDER BY id DESC
+        OFFSET $start ROWS
+        FETCH NEXT $length ROWS ONLY";
+
+
+    $data = [];
+    $query = $this->db->query($sql)->result();
+
+    foreach ($query as $row) {
+        $data[] = [
+            '<input type="checkbox" class="row-check" value="'.$row->id.'" >',
+            $row->doc_entry,
+            $row->doc_num,
+            $row->product_no,
+            $row->product_name,
+            $row->planned_qty
+        ];
+    }
+
+    // Total records
+    //$total = $this->db->query("SELECT COUNT(*) AS cnt FROM production_order")->row()->cnt;
+
+
+
+     $recordsFiltered = $this->db
+        ->query("
+            SELECT COUNT(DISTINCT p.product_no) AS cnt
+            FROM production_order  as p $where ")
+        ->row()->cnt;
+    echo json_encode([
+        "draw" => $draw,
+        "recordsTotal" => $recordsFiltered,
+        "recordsFiltered" => $recordsFiltered,
+        "data" => $data
+    ]);
+}
+
+
+public function getProductOrderList($product_name=null)
+{
+    $draw   = intval($this->input->post("draw"));
+    $start  = intval($this->input->post("start"));
+    $length = intval($this->input->post("length"));
+
+    $search   = $_POST['search']['value'] ?? '';
+  
+
+    /* Columns allowed for search */
+    $column_search = array(
+        'p.doc_entry',
+        'p.doc_num',
+        'p.product_no',
+        'p.product_name',
+        'p.planned_qty',
+        'p.item_code',
+        'p.item_name'
+    );
+
+    /* =======================
+       BASE WHERE
+    ======================= */
+    $where = " WHERE p.status != 'C' ";
+
+    if($product_name){ $where .="  and p.product_name='$product_name'";}
+
+    /* 🔍 Global Search */
+    if (!empty($search)) {
+        $search = $this->db->escape_like_str($search);
+        $where .= " AND (";
+        foreach ($column_search as $col) {
+            $where .= "$col LIKE '%$search%' OR ";
+        }
+        $where = rtrim($where, ' OR ');
+        $where .= ")";
+    }
+
+    
+    /* =======================
+       DATA QUERY (FIXED ✅)
+    ======================= */
+    $sql = "
+        SELECT p.id, p.doc_entry, p.doc_num,
+               p.product_no, p.product_name, p.planned_qty,p.item_code,p.item_name
+        FROM production_order p 
+        INNER JOIN (
+        SELECT doc_entry, MAX(id) AS max_id
+        FROM production_order where status !='C'
+        GROUP BY doc_entry
+    ) g ON p.doc_entry = g.doc_entry AND p.id = g.max_id
+        $where
+        ORDER BY p.id DESC
+        OFFSET $start ROWS
+        FETCH NEXT $length ROWS ONLY
+    ";
+
+    $query = $this->db->query($sql)->result();
+
+    $data = [];
+    foreach ($query as $row) {
+
+      $actionbutton =
+            '<button type="button" class="btn btn-primary btn-sm" onclick="filteredRecords('.$row->id.')" >Filtered</button>';
+
+        $data[] = [
+          '<input type="checkbox" class="row-check" name="check_value[]" value="'.$row->doc_entry.'">',
+            $row->doc_entry,
+            $row->doc_num,
+            $row->item_code,
+            $row->item_name,
+            $row->product_no,
+            $row->product_name,
+            $row->planned_qty,
+            $actionbutton
+        ];
+    }
+
+    /* =======================
+       COUNT QUERY (MATCHING)
+    ======================= */
+    // $recordsFiltered = $this->db->query("
+    //     SELECT COUNT(*) AS cnt
+    //     FROM production_order p
+    //     $where  
+    // ")->row()->cnt;
+
+        $recordsFiltered = $this->db->query("
+            SELECT COUNT(DISTINCT p.doc_entry) AS cnt
+            FROM production_order p
+            $where
+        ")->row()->cnt;
+
+    echo json_encode([
+        "draw" => $draw,
+        "recordsTotal" => $recordsFiltered,
+        "recordsFiltered" => $recordsFiltered,
+        "data" => $data
+    ]);
+}
+
+
+public function filteredProductionList()
+{
+    $id = $this->input->post('id');
+
+    /* ✅ Correct Query Builder usage */
+    $result = $this->db
+        ->where('id', $id)
+        ->get('production_order')
+        ->row();
+
+    if (!$result) {
+        echo json_encode([
+            "draw" => 0,
+            "recordsTotal" => 0,
+            "recordsFiltered" => 0,
+            "data" => []
+        ]);
+        return;
+    }
+
+    /* 🔁 Reuse DataTable method with product_name filter */
+    $this->getProductOrderList($result->product_name);
+}
+
+
+public function Process()
+{
+    $selected_docs = $this->input->post('check_value'); 
+
+    if (!empty($selected_docs)) {
+       
+        $data['items'] = $this->sales_model->getItemsByDocEntries($selected_docs);
+
+        // Load the view and pass the items
+        $this->load->view('Transaction/itemsForPlanned', $data);
+    } else {
+       
+        $this->session->set_flashdata('error', 'Please select at least one record.');
+        redirect('Transaction/productionOrder'); 
+    }
+}
+
 
     
 }

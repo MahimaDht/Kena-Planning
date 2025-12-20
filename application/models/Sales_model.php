@@ -56,9 +56,24 @@ class Sales_model extends CI_Model
             ->get('sales_process_header')
             ->row();
     }
+}
 
 
+    public function getItemsByDocEntries($doc_entries = [])
+  {
+    if (!empty($doc_entries)) {
+        $this->db->where_in('doc_entry', $doc_entries);
+        $query = $this->db->get('production_order'); // or your table name
+        return $query->result();
     }
+    return [];
+  }
+
+
+
+  
+
+
 
 
 }

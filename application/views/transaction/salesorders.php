@@ -5,9 +5,10 @@ $this->load->view('include/header');
 <body data-theme="default" data-layout="fluid" data-sidebar-position="left" data-sidebar-layout="default">
     <div class="wrapper">       
         <!-- nav_sidebar -->
-        <?php 
+    <?php 
+
         $this->load->view('include/nav_sidebar');
-        ?>
+    ?>
         <div class="main">      
             <!-- nav_header -->
             <?php 
@@ -20,6 +21,7 @@ $this->load->view('include/header');
                         <div class="col-12">
                             <div class="card">
                                 <div class="card-body table-responsive">
+                               
                                    <table class="table table-striped" id="example123">
                                        <thead>
                                         <tr>
@@ -34,8 +36,9 @@ $this->load->view('include/header');
 
                                    </tbody>
                                </table>
-
+                               
                            </div>
+                          
                        </div>
                    </div>
 
@@ -52,7 +55,7 @@ $this->load->view('include/header');
 <script>
 
 $(document).ready(function () {
-      var csrfName = '<?php echo $this->security->get_csrf_token_name(); ?>';
+    var csrfName = '<?php echo $this->security->get_csrf_token_name(); ?>';
     var csrfHash = '<?php echo $this->security->get_csrf_hash(); ?>';
     $('#example123').DataTable({
         processing: true,
