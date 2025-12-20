@@ -31,6 +31,7 @@ $this->load->view('include/header');
                                             <th>Product Code</th>
                                             <th>Product Name</th>
                                             <th>Qty</th>
+                                            
                                         </tr>
                                     </thead>
                                     <tbody>
