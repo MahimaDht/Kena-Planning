@@ -20,24 +20,32 @@ $this->load->view('include/header');
                         <div class="col-12">
                             <div class="card">
                                 <div class="card-body table-responsive">
+
+                                <form class="form-group" action="<?php echo base_url()?>Transaction/Process" method="post">
+                                  <input type="hidden" name="<?= $this->security->get_csrf_token_name(); ?>" value="<?= $this->security->get_csrf_hash(); ?>">
+                                <input type="hidden" name="doc_entries" id="doc_entries">
                                    <table class="table table-striped" id="example123">
                                        <thead>
                                         <tr>
-                                          <!--  <th></th> -->
+                                           <th></th>
                                             <th>Doc Entry</th>
+                                            <th>DocNum</th>
                                             <th>Sales Order</th>
-                                             <th>Item Code</th>
-                                             <th>Item Name</th>
+                                           <!--    <th>Card Name</th> -->
                                             <th>product Code</th>
                                             <th>product Name</th>
                                             <th>Qty</th>
-                                            <th>Action</th>
+                                            <!-- <th>Action</th> -->
                                        </tr>
                                    </thead>
                                    <tbody>
 
                                    </tbody>
                                </table>
+                            <div class="col-md-2">
+                               <button type="submit" class="btn btn-primary">Submit</button>
+                           </div>
+                           </form>
 
                            </div>
                        </div>
@@ -93,75 +101,116 @@ $this->load->view('include/header');
 ?>
 
 
+
+
 <script>
+var csrfName = '<?= $this->security->get_csrf_token_name(); ?>';
+var csrfHash = '<?= $this->security->get_csrf_hash(); ?>';
 
-     var csrfName = '<?php echo $this->security->get_csrf_token_name(); ?>';
-    var csrfHash = '<?php echo $this->security->get_csrf_hash(); ?>';
+let table;
+
+/* store active filter */
+let activeFilter = {
+    product_type: '',
+    product_size: '',
+    product_gauge: ''
+};
+
+/* store checked rows */
+let checkedDocEntries = [];
+
 $(document).ready(function () {
-    
-    $('#example123').DataTable({
+
+    table = $('#example123').DataTable({
         processing: true,
         serverSide: true,
-        stateSave: true,
         destroy: true,
-          columnDefs: [
-            { className: "text-nowrap", targets: [0, 1] },
-          
+        stateSave: false,
+        columnDefs: [
+            { orderable: false, targets: 0 }
         ],
-
         ajax: {
-            url: "<?php echo base_url('Transaction/getProductOrderList'); ?>",
-            type: "POST",
-             data: function (d) {
-                d[csrfName] = csrfHash;
-              
-            },
-        },
-        columns: [
-            // { data: 0 }, // id
-            { data: 1 }, // DocEntry
-            { data: 2 }, // DocNum
-            { data: 3 }, // Itemcode
-            { data: 4 } ,
-            { data: 5 } ,
-            {data : 6 },
-            {data : 7 },
-            {data : 8 }  // Action
-        ]
-    });
-});
-
-
-function filteredRecords(id)
-{
-    $('#filteredModal').modal('show');
-
-    $('#filteredTable').DataTable({
-        processing: true,
-        serverSide: true,
-        destroy: true,
-
-        ajax: {
-            url: "<?= base_url('Transaction/filteredProductionList') ?>",
+            url: "<?= base_url('Transaction/getProductOrderList'); ?>",
             type: "POST",
             data: function (d) {
-                d.id = id;
-                d[csrfName] = csrfHash;
+                d.product_type  = activeFilter.product_type;
+                d.product_size  = activeFilter.product_size;
+                d.product_gauge = activeFilter.product_gauge;
+                d[csrfName]     = csrfHash;
             }
         },
-
         columns: [
             { data: 0 },
             { data: 1 },
             { data: 2 },
-            { data: 3 },
-            { data: 4 },
+             { data: 3 },
+            // { data: 4 },
             { data: 5 },
-             {data : 6 },
-              {data : 7 }
-        ]
+            { data: 6 },
+            { data: 7 }
+        ],
+        drawCallback: function () {
+            restoreCheckedRows();
+        }
+    });
+});
+
+
+
+
+$(document).on('change', '.row-check', function () {
+
+    let docEntry = $(this).val();
+
+    if ($(this).is(':checked')) {
+
+        if (!checkedDocEntries.includes(docEntry)) {
+            checkedDocEntries.push(docEntry);
+        }
+
+        /* apply filter ONLY once (first checkbox decides filter) */
+        if (checkedDocEntries.length === 1) {
+             blockUIWithLogo();
+            activeFilter.product_type  = $(this).data('product_type');
+            activeFilter.product_size  = $(this).data('product_size');
+            activeFilter.product_gauge = $(this).data('product_gauge');
+
+            table.ajax.reload(function(){
+                 $.unblockUI();
+            });
+               
+        }
+
+    } else {
+
+        
+        checkedDocEntries = checkedDocEntries.filter(v => v !== docEntry);
+
+        /* reset filter if nothing checked */
+        if (checkedDocEntries.length === 0) {
+             blockUIWithLogo();
+            activeFilter = {
+                product_type: '',
+                product_size: '',
+                product_gauge: ''
+            };
+            
+            //table.ajax.reload();
+             table.ajax.reload(function(){
+                 $.unblockUI();
+            });
+        }
+    }
+    $('#doc_entries').val(JSON.stringify(checkedDocEntries));
+   
+});
+
+/* re-check checkbox after reload */
+function restoreCheckedRows() {
+    $('.row-check').each(function () {
+        if (checkedDocEntries.includes($(this).val())) {
+            $(this).prop('checked', true);
+        }
     });
 }
-
-
 </script>

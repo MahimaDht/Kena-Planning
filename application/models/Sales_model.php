@@ -59,15 +59,64 @@ class Sales_model extends CI_Model
 }
 
 
-    public function getItemsByDocEntries($doc_entries = [])
-  {
-    if (!empty($doc_entries)) {
-        $this->db->where_in('doc_entry', $doc_entries);
-        $query = $this->db->get('production_order'); // or your table name
-        return $query->result();
-    }
-    return [];
-  }
+//     public function getItemsByDocEntries($doc_entries = [])
+//   {
+//     if (!empty($doc_entries)) {
+
+
+
+//        $this->db->select('a.*, b.DocNum AS salesorder, b.CardName');
+//         $this->db->from('production_order AS a');
+//         $this->db->join(
+//             'salesorderheader AS b',
+//             'a.origin_doc_entry = b.DocEntry',
+//             'left'
+//         );
+//         $this->db->where_in('a.doc_entry', $doc_entries);
+
+//         $query = $this->db->get();
+//         $result = $query->result();
+
+       
+//         return $result;
+//     }
+//     return [];
+//   }
+
+public function getItemsByDocEntries($docEntries)
+{   
+   
+    if (is_string($docEntries)) {
+    $docEntries = json_decode($docEntries, true);
+}
+  
+
+    $entries = implode(',', array_map([$this->db, 'escape'], (array) $docEntries));
+    $sql = "
+        SELECT 
+            p.doc_entry,
+            p.doc_num,
+            so.DocNum as salesorder,
+            so.CardName,
+            p.item_code,
+            p.item_name,
+            p.product_no,
+            p.product_name,
+            p.planned_qty
+        FROM production_order p
+       
+        OUTER APPLY (
+            SELECT TOP 1 DocNum, CardName
+            FROM salesorderheader
+            WHERE DocEntry = p.origin_doc_entry
+            ORDER BY DocEntry DESC
+        ) so
+        WHERE p.doc_entry IN ($entries)
+    ";
+
+    $items = $this->db->query($sql)->result();
+    return $items;
+}
 
 
 

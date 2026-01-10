@@ -21,11 +21,24 @@ $this->load->view('include/header');
                             <div class="card">
                                 <div class="card-body table-responsive">
                             <form class="for-group" method="post">
-                                  <table class="table table-striped">
+                                
+                                  <?php 
+$groupedItems = [];
+if (isset($items)) {
+    foreach ($items as $item) {
+        $groupedItems[$item->doc_entry][] = $item;
+    }
+}
+?>
+
+<?php foreach ($groupedItems as $docEntry => $docItems): ?>
+    <div class="card border mb-3">
+        <div class="card-body">
+            <h5 class="card-title">Doc Entry: <?php echo $docEntry; ?></h5>
+            <table class="table table-striped datatable-item">
                                     <thead>
                                         <tr>
                                             <th></th>
-                                            <th>Doc Entry</th>
                                             <th>Item Code</th>
                                             <th>Item Name</th>
                                             <th>Product Code</th>
@@ -35,19 +48,22 @@ $this->load->view('include/header');
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php foreach($items as $item): ?>
-                                        <tr>
-                                        <td><input type="checkbox" name="item_code" value=""></td>
-                                            <td><?= $item->doc_entry ?></td>
-                                            <td><?= $item->item_code ?></td>
-                                            <td><?= $item->item_name ?></td>
-                                            <td><?= $item->product_no ?></td>
-                                            <td><?= $item->product_name ?></td>
-                                            <td><?= $item->planned_qty ?></td>
-                                        </tr>
-                                        <?php endforeach; ?>
+                    <?php foreach ($docItems as $item): ?>
+                        <tr>
+                            <td><input type="checkbox" name="item[]" value="<?php echo $item->item_code; ?>"></td>
+                            <td><?php echo $item->item_code; ?></td>
+                            <td><?php echo $item->item_name; ?></td>
+                            <td><?php echo $item->product_no; ?></td>
+                            <td><?php echo $item->product_name; ?></td>
+                            <td><?php echo $item->planned_qty; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
                                     </tbody>
                                 </table>
+        </div>
+    </div>
+<?php endforeach; ?>
+
                                  <button class=" mt-3 btn  btn-info" style="float:right;" type="button">Plan</button>
                               </form>
                            </div>
@@ -64,10 +80,20 @@ $this->load->view('include/header');
 ?>
 
 
+</script><script>
+var docEntries = <?php echo json_encode($docEntries); ?>;
+csrfName = '<?= $this->security->get_csrf_token_name(); ?>';
+csrfHash = '<?= $this->security->get_csrf_hash(); ?>';
+
+    </script>
 <script>
-
-
-
-
-
+    document.addEventListener("DOMContentLoaded", function() {
+        $(".datatable-item").DataTable({
+            visible: true,
+             dom: 'Bfrtip', 
+             buttons: [
+             'csv', 'excel'
+            ]
+        });
+    });
 </script>

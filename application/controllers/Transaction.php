@@ -678,113 +678,23 @@ public function productionOrder()
 }
 
 
-   public function getProductOrderList1()
+
+
+
+public function getProductOrderList()
 {
     $draw   = intval($this->input->post("draw"));
     $start  = intval($this->input->post("start"));
     $length = intval($this->input->post("length"));
 
-    // $sql = "
-    //     SELECT id, doc_entry, doc_num, item_code, item_name
-    //     FROM production_order
-    //     ORDER BY id DESC
-    //     OFFSET $start ROWS
-    //     FETCH NEXT $length ROWS ONLY
-    // ";
+       $product_type  = $this->input->post('product_type');
+     $product_size  = $this->input->post('product_size');
+     $product_gauge = $this->input->post('product_gauge');
 
     $search = $_POST['search']['value'] ?? '';
 
-/* Columns allowed for search */
-$column_search = array(
-    'p.doc_entry',
-    'p.doc_num',
-    'p.product_no',
-    'p.product_name',
-    'p.planned_qty',
-);
-
-/* =======================
-   BASE WHERE CONDITION
-======================= */
-$where = " WHERE p.status != 'C' ";
-
-if (!empty($search)) {
-    $search = $this->db->escape_like_str($search);
-    $where .= " AND (";
-    foreach ($column_search as $col) {
-        $where .= "$col LIKE '%$search%' OR ";
-    }
-    $where = rtrim($where, ' OR ');
-    $where .= ")";
-}
-
-
-
-    // $sql="SELECT p.id, p.doc_entry, p.doc_num, p.product_no, p.product_name,p.planned_qty
-    //         FROM production_order p
-    //         JOIN (
-    //             SELECT product_no, MAX(id) AS max_id
-    //             FROM production_order  WHERE status != 'C'
-    //             GROUP BY product_no
-    //         ) g ON p.product_no = g.product_no AND p.id = g.max_id And p.status!='C'
-    //           $where
-    //         ORDER BY p.id DESC
-    //         OFFSET $start ROWS
-    //         FETCH NEXT $length ROWS ONLY";
-
-
-  $sql = "
-        SELECT p.id, p.doc_entry, p.doc_num, p.item_code, p.item_name,p.product_no,p.product_name,p.planned_qty
-        FROM production_order as p
-        ORDER BY id DESC
-        OFFSET $start ROWS
-        FETCH NEXT $length ROWS ONLY";
-
-
-    $data = [];
-    $query = $this->db->query($sql)->result();
-
-    foreach ($query as $row) {
-        $data[] = [
-            '<input type="checkbox" class="row-check" value="'.$row->id.'" >',
-            $row->doc_entry,
-            $row->doc_num,
-            $row->product_no,
-            $row->product_name,
-            $row->planned_qty
-        ];
-    }
-
-    // Total records
-    //$total = $this->db->query("SELECT COUNT(*) AS cnt FROM production_order")->row()->cnt;
-
-
-
-     $recordsFiltered = $this->db
-        ->query("
-            SELECT COUNT(DISTINCT p.product_no) AS cnt
-            FROM production_order  as p $where ")
-        ->row()->cnt;
-    echo json_encode([
-        "draw" => $draw,
-        "recordsTotal" => $recordsFiltered,
-        "recordsFiltered" => $recordsFiltered,
-        "data" => $data
-    ]);
-}
-
-
-public function getProductOrderList($product_name=null)
-{
-    $draw   = intval($this->input->post("draw"));
-    $start  = intval($this->input->post("start"));
-    $length = intval($this->input->post("length"));
-
-    $search   = $_POST['search']['value'] ?? '';
-  
-
-    /* Columns allowed for search */
-    $column_search = array(
+    /* Searchable columns */
+    $column_search = [
         'p.doc_entry',
         'p.doc_num',
         'p.product_no',
@@ -792,16 +702,24 @@ public function getProductOrderList($product_name=null)
         'p.planned_qty',
         'p.item_code',
         'p.item_name'
-    );
+    ];
 
     /* =======================
-       BASE WHERE
+       WHERE CONDITIONS
     ======================= */
-    $where = " WHERE p.status != 'C' ";
+    $where = " WHERE p.status <> 'C' AND i.deleted = 'N' ";
 
-    if($product_name){ $where .="  and p.product_name='$product_name'";}
+    if ($product_size) {
+        $where .= " AND i.u_ait_prod_size = ".$this->db->escape($product_size);
+    }
+    if ($product_gauge) {
+        $where .= " AND i.u_ait_guage = ".$this->db->escape($product_gauge);
+    }
+    if ($product_type) {
+        $where .= " AND i.u_product_type = ".$this->db->escape($product_type);
+    }
 
-    /* 🔍 Global Search */
+    /* Global search */
     if (!empty($search)) {
         $search = $this->db->escape_like_str($search);
         $where .= " AND (";
@@ -812,39 +730,110 @@ public function getProductOrderList($product_name=null)
         $where .= ")";
     }
 
-    
     /* =======================
-       DATA QUERY (FIXED ✅)
+       DATA QUERY
     ======================= */
+    $paging = "ORDER BY p.id DESC OFFSET $start ROWS FETCH NEXT $length ROWS ONLY";
+    if ($length == -1) {
+        $paging = "";
+    }
+/*
     $sql = "
-        SELECT p.id, p.doc_entry, p.doc_num,
-               p.product_no, p.product_name, p.planned_qty,p.item_code,p.item_name
-        FROM production_order p 
+        SELECT 
+            p.id,
+            p.doc_entry,
+            p.doc_num,
+            p.product_no,
+            p.product_name,
+            p.planned_qty,
+            p.item_code,
+            p.item_name,
+            so.DocNum as salesorder,
+            i.u_product_type,
+            i.u_ait_prod_size,
+            i.u_ait_guage
+        FROM production_order p
         INNER JOIN (
-        SELECT doc_entry, MAX(id) AS max_id
-        FROM production_order where status !='C'
-        GROUP BY doc_entry
-    ) g ON p.doc_entry = g.doc_entry AND p.id = g.max_id
+            SELECT doc_entry, MAX(id) AS max_id
+            FROM production_order
+            WHERE status <> 'C'
+            GROUP BY doc_entry
+        ) g 
+            ON p.doc_entry = g.doc_entry 
+           AND p.id = g.max_id
+        INNER JOIN item_master i
+            ON p.product_no = i.item_code
+    OUTER APPLY (
+    SELECT TOP 1 DocNum
+    FROM salesorderheader so
+    WHERE so.DocEntry = p.origin_doc_entry
+    ORDER BY so.DocEntry DESC
+) so
+
+      
         $where
         ORDER BY p.id DESC
         OFFSET $start ROWS
         FETCH NEXT $length ROWS ONLY
-    ";
+    ";*/
 
+  $sql = "
+        WITH PagedOrders AS (
+            SELECT 
+                p.id,
+                p.doc_entry,
+                p.doc_num,
+                p.product_no,
+                p.product_name,
+                p.planned_qty,
+                p.item_code,
+                p.item_name,
+                p.origin_doc_entry,
+                i.u_product_type,
+                i.u_ait_prod_size,
+                i.u_ait_guage
+            FROM production_order p
+            INNER JOIN (
+                SELECT doc_entry, MAX(id) AS max_id
+                FROM production_order
+                WHERE status <> 'C'
+                GROUP BY doc_entry
+            ) g 
+                ON p.doc_entry = g.doc_entry 
+               AND p.id = g.max_id
+            INNER JOIN item_master i
+                ON p.product_no = i.item_code
+            $where
+            $paging
+        )
+        SELECT 
+            po.*,
+            (SELECT TOP 1 DocNum FROM salesorderheader so WHERE so.DocEntry = po.origin_doc_entry) as salesorder
+        FROM PagedOrders po
+        ORDER BY po.id DESC ";
     $query = $this->db->query($sql)->result();
+
+    
 
     $data = [];
     foreach ($query as $row) {
 
-      $actionbutton =
-            '<button type="button" class="btn btn-primary btn-sm" onclick="filteredRecords('.$row->id.')" >Filtered</button>';
+        $actionbutton =
+            '<button type="button" class="btn btn-primary btn-sm"
+                onclick="filteredRecords('.$row->doc_entry.')">Filtered</button>';
 
         $data[] = [
-          '<input type="checkbox" class="row-check" name="check_value[]" value="'.$row->doc_entry.'">',
+            '<input type="checkbox"  class="row-check"
+                value="'.$row->doc_entry.'" data-product_type="'.$row->u_product_type.'"
+                data-product_size="'.$row->u_ait_prod_size.'"
+                data-product_gauge="'.$row->u_ait_guage.'"
+               >',
             $row->doc_entry,
             $row->doc_num,
-            $row->item_code,
+            $row->salesorder,
+           // $row->item_code,
             $row->item_name,
+
             $row->product_no,
             $row->product_name,
             $row->planned_qty,
@@ -855,17 +844,26 @@ public function getProductOrderList($product_name=null)
     /* =======================
        COUNT QUERY (MATCHING)
     ======================= */
-    // $recordsFiltered = $this->db->query("
-    //     SELECT COUNT(*) AS cnt
-    //     FROM production_order p
-    //     $where  
-    // ")->row()->cnt;
-
-        $recordsFiltered = $this->db->query("
-            SELECT COUNT(DISTINCT p.doc_entry) AS cnt
+    $countSql = "
+        SELECT COUNT(*) AS cnt
+        FROM (
+            SELECT p.doc_entry
             FROM production_order p
+            INNER JOIN (
+                SELECT doc_entry, MAX(id) AS max_id
+                FROM production_order
+                WHERE status <> 'C'
+                GROUP BY doc_entry
+            ) g 
+                ON p.doc_entry = g.doc_entry 
+               AND p.id = g.max_id
+            INNER JOIN item_master i
+                ON p.product_no = i.item_code
             $where
-        ")->row()->cnt;
+        ) x
+    ";
+
+    $recordsFiltered = $this->db->query($countSql)->row()->cnt;
 
     echo json_encode([
         "draw" => $draw,
@@ -876,19 +874,25 @@ public function getProductOrderList($product_name=null)
 }
 
 
-public function filteredProductionList()
+public function Process()
 {
-    $id = $this->input->post('id');
+    $data['docEntries'] = $this->input->post('doc_entries');
+    $docEntries = json_decode($data['docEntries'], true);
+     $data['items'] = $this->sales_model->getItemsByDocEntries($docEntries);
 
-    /* ✅ Correct Query Builder usage */
-    $result = $this->db
-        ->where('id', $id)
-        ->get('production_order')
-        ->row();
+    $this->load->view('transaction/itemsForPlanned', $data);
+  
+}
 
-    if (!$result) {
+public function getdataProcess12()
+{
+    $docEntries = json_decode($this->input->post('doc_entries'), true);
+  
+    $draw = $this->input->post('draw');
+
+    if (empty($docEntries)) {
         echo json_encode([
-            "draw" => 0,
+            "draw" => $draw,
             "recordsTotal" => 0,
             "recordsFiltered" => 0,
             "data" => []
@@ -896,29 +900,103 @@ public function filteredProductionList()
         return;
     }
 
-    /* 🔁 Reuse DataTable method with product_name filter */
-    $this->getProductOrderList($result->product_name);
-}
+    
+    $items = $this->sales_model->getItemsByDocEntries($docEntries);
+    
+    $data = [];
+    foreach ($items as $row) {
 
-
-public function Process()
-{
-    $selected_docs = $this->input->post('check_value'); 
-
-    if (!empty($selected_docs)) {
-       
-        $data['items'] = $this->sales_model->getItemsByDocEntries($selected_docs);
-
-        // Load the view and pass the items
-        $this->load->view('Transaction/itemsForPlanned', $data);
-    } else {
-       
-        $this->session->set_flashdata('error', 'Please select at least one record.');
-        redirect('Transaction/productionOrder'); 
+        $data[] = [
+            'checkbox'     => '<input type="checkbox" class="row-check" value="'.$row->doc_entry.'" name="doc_entries[]">',
+            'doc_entry'    => $row->doc_entry,
+            'doc_num'      => $row->doc_num,
+            'salesorder'   => $row->salesorder,
+            'CardName'     => $row->CardName,
+            'item_code'    => $row->item_code,
+            'item_name'    => $row->item_name,
+            'product_no'   => $row->product_no,
+            'product_name' => $row->product_name,
+            'planned_qty'  => $row->planned_qty
+        ];
+        // $data[] = [
+        //     '<input type="checkbox"  class="row-check"
+        //         value="'.$row->doc_entry.'"  name="doc_entries[]"
+        //        >',
+        //     $row->doc_entry,
+        //     $row->doc_num,
+        //     $row->salesorder,
+        //     $row->CardName,
+        //     $row->item_code,
+        //     $row->item_name,
+        //     $row->product_no,
+        //     $row->product_name,
+        //     $row->planned_qty
+        // ];
     }
-}
 
+    $recordsTotal = count($items);
+    $recordsFiltered = $recordsTotal;
+
+    echo json_encode([
+        "draw" => $draw,
+        "recordsTotal" => $recordsTotal,
+        "recordsFiltered" => $recordsFiltered,
+        "data" => $data
+    ]);
 
     
+}
+
+public function getdataProcess()
+{
+    $docEntries = json_decode($this->input->post('doc_entries'), true);
+
+    if (empty($docEntries)) {
+        echo json_encode(['data' => []]);
+        return;
+    }
+
+    // Fetch all items for selected doc_entries
+    $items = $this->sales_model->getItemsByDocEntries($docEntries);
+
+    // Group items by doc_entry
+    $grouped = [];
+    foreach ($items as $item) {
+        $grouped[$item->doc_entry][] = $item;
+    }
+
+    // Prepare JSON for DataTables
+    $data = [];
+    foreach ($grouped as $docEntry => $itemRows) {
+        // Add a heading row
+        $data[] = [
+            'is_header' => true,
+            'doc_entry' => $docEntry,
+            'count' => count($itemRows)
+        ];
+
+        // Add actual item rows
+        foreach ($itemRows as $item) {
+            $data[] = [
+                'is_header'     => false,
+                'doc_entry'     => $item->doc_entry,
+                'doc_num'       => isset($item->doc_num) ? $item->doc_num : '',
+                'salesorder'    => isset($item->salesorder) ? $item->salesorder : '',
+                'CardName'      => isset($item->CardName) ? $item->CardName : '',
+                'item_code'     => isset($item->item_code) ? $item->item_code : '',
+                'item_name'     => isset($item->item_name) ? $item->item_name : '',
+                'product_no'    => isset($item->product_no) ? $item->product_no : '',
+                'product_name'  => isset($item->product_name) ? $item->product_name : '',
+                'planned_qty'   => isset($item->planned_qty) ? $item->planned_qty : 0
+            ];
+        }
+    }
+
+    // Return JSON for DataTables
+    echo json_encode(['data' => $data]);
+}
+
+
+
 }
 ?>

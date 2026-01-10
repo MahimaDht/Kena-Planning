@@ -2640,6 +2640,8 @@ public function editmappingMachine($product_type_id,$id)
             }
             $newSeqString = implode('|', $newSequence);
 
+
+            $this->db->where('product_type',$product_type);
             $routHeaders = $this->db->get('rout_header')->result();
 
             foreach ($routHeaders as $rout) {
@@ -2771,7 +2773,7 @@ public function editmappingMachine($product_type_id,$id)
             }
             $newSeqString = implode('|', $newSequence);
 
-         
+                    $this->db->where('product_type',$product_type);
            $routHeaders = $this->db->where('id !=', $id)->get('rout_header')->result();
 
            //print_r($routHeaders); die;
@@ -3287,7 +3289,6 @@ public function productToMaterial()
 
         $inserted = false;
 
-       
         for ($i = 0; $i < $countraws; $i++) {
             $data = array(
                 'main_product_code'     => $item_code,

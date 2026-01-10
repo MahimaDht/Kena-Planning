@@ -35,8 +35,8 @@
 									</div>
 								</div>
 								<div class="card-body">
-
-                                <table class="table table-bordered" id="datatable_index">
+                            <div class="col-12 table-responsive">
+                                <table class="table table-bordered" id="datatable_index" style="width: 100%;">
                                             <thead class="bg-light">
                                                 <tr>
                                                    
@@ -69,6 +69,7 @@
 
                                             </tbody><!-- end tbody -->
                                         </table><!-- end table -->
+                                    </div>
 								</div>
 							</div>
 						</div>
