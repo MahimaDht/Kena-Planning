@@ -54,16 +54,13 @@ $this->load->view('include/header');
                                             <td>
                                        
                                       <?php if($value->is_process_assign == 'Y') {
-                                          $process_header = $this->db->query("SELECT * FROM sales_process_header WHERE sales_item_id='".$value->salesitem_id ."' ")->row();
-
-                                          
-                                        
+                                          $process_header = $this->db->query("SELECT * FROM sales_process_header WHERE sales_item_id='".$value->salesitem_id ."' ")->row();   
                                      ?>
 
-                                            <a href="<?php echo base_url()?>Master/showAssignProcessForm/<?php echo $value->DocEntry ?>/<?php echo $value->header_id ?>/<?php echo $value->salesitem_id ?>/<?php echo $process_header->id?>" class="btn btn-sm btn-info">Edit Process</a>
+                                            <a href="<?php echo base_url()?>Master/showAssignProcessForm/<?php echo $value->DocEntry ?>/<?php echo $value->LineNum ?>/<?php echo $process_header->id?>" class="btn btn-sm btn-info">Edit Process</a>
 
                                         <?php }else { ?>
-                                         <a href="<?php echo base_url()?>Master/showAssignProcessForm/<?php echo $value->DocEntry ?>/<?php echo $value->header_id ?>/<?php echo $value->salesitem_id ?>" class="btn btn-sm btn-info">Assign Process</a>
+                                         <a href="<?php echo base_url()?>Master/showAssignProcessForm/<?php echo $value->DocEntry ?>/<?php echo $value->LineNum ?>" class="btn btn-sm btn-info">Assign Process</a>
 
                                          <?php }?>
                                             </td>

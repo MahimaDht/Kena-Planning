@@ -383,4 +383,42 @@ function convertToIndianCurrency($number) {
 }
 
     
+function getItemStockFromAPI($itemCode)
+{
+    $url = "http://103.70.35.84/KenaLiveRestAPI/api/v1/GetItemStock";
+    $token = "kmplbkR9zE2pT4vW7yN5lQ1aH8gC3xD6mS0jF";
+
+    $postData = json_encode([
+        "ItemCode" => $itemCode,
+       "stockType" => "batch"
+    ]);
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $token,
+        'Content-Length: ' . strlen($postData)
+    ]);
+
+    $response = curl_exec($ch);
+
+
+    if (curl_errno($ch)) {
+        curl_close($ch);
+        return 0;
+    }
+
+    curl_close($ch);
+
+    $result = json_decode($response, true);
+    
+    // Adjust key based on actual API response
+    return $result['Data'][0]['TotalStock'] ?? 0;
+}
+
+
+
 }

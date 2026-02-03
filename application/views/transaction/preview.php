@@ -51,8 +51,10 @@ foreach ($process as $row) {
                         <div class="card-body px-4 py-4">
                             <h5 class="text-secondary fw-bold mb-3">Sales Information</h5>
                             <input type="hidden" name="id" id="id" value="<?php echo $process_header->id ?>">
-                            <input type="hidden" name="sales_item_id" value="<?php echo $sales_item_id?>">
-                            <input type="hidden" name="sales_header" value="<?= $salesdata->header_id ?>">
+                            <!-- <input type="hidden" name="sales_item_id" value="<?php echo $sales_item_id?>">
+                            <input type="hidden" name="sales_header" value="<?= $salesdata->header_id ?>"> -->
+                             <input type="hidden" name="doc_entry" value="<?= $salesdata->DocEntry ?>">
+                              <input type="hidden" name="salesitem_line" value="<?= $salesdata->LineNum ?>">
                             <div class="row g-4">
                                 <div class="col-md-4">
                                     <label class="text-muted ">ID</label>
@@ -201,7 +203,7 @@ foreach ($process as $row) {
                         <div class="col-12">
                             <button class="btn btn-info mb-2 " type="submit" style="float:right;margin-right: 20px;"  name="submit" id="submit">Print</button>
 
-                          <a class="btn btn-secondary mb-2" style="float:right;margin-right: 20px;" name="cancel" id="cancel" href="<?= base_url('Master/showAssignProcessForm/'.$salesdata->DocEntry.'/'.$salesdata->header_id.'/'.$sales_item_id.'/'.($process_header->id))?>">Back</a>
+                          <a class="btn btn-secondary mb-2" style="float:right;margin-right: 20px;" name="cancel" id="cancel" href="<?= base_url('Master/showAssignProcessForm/'.$salesdata->DocEntry.'/'.$salesdata->LineNum.'/'.($process_header->id))?>">Back</a>
 
 
                         </div>

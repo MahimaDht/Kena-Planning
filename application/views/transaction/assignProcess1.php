@@ -59,6 +59,7 @@ $this->load->view('include/header');
                                         <input type="hidden" name="process_header_id" id="process_header_id" value="<?php echo $editprocessheader->id ;?>">
                                           <input type="hidden" name="doc_entry" value="<?php echo $doc_entry ;?>">
                                         <input type="hidden" name="sales_id" value="<?= $sales_itemdata->header_id; ?>" id="sales_id">
+                                          <input type="hidden" name="sales_line" value="<?= $sales_itemdata->LineNum; ?>" id="sales_line">
                                         <input type="hidden" name="<?= $this->security->get_csrf_token_name(); ?>" value="<?= $this->security->get_csrf_hash(); ?>">
                                         <input type="hidden" name="id" class="form-control" id="id" value="<?= $sales_itemdata->salesitem_id; ?>">
                                         <input type="hidden" name="product_id" id="product_id" class="form-control" value="<?= $product_id?? ''; ?>">
@@ -279,6 +280,7 @@ $this->load->view('include/header');
                                     <input type="hidden" name="<?= $this->security->get_csrf_token_name(); ?>" value="<?= $this->security->get_csrf_hash(); ?>">
                                     <input type="hidden" name="id" class="form-control" id="id" value="<?= $sales_itemdata->salesitem_id; ?>">
                                     <input type="hidden" name="doc_entry" value="<?php echo $doc_entry ;?>">
+                                    <input type="hidden" name="sales_line" value="<?= $sales_itemdata->LineNum; ?>" id="sales_line">
                                     <input type="hidden" name="product_id" id="product_id" class="form-control" value="<?= $product_id?? ''; ?>">
                                     <h6 class="text-secondary d-flex justify-content-between align-items-center">
                                         <span>Product Type: <span class="fw-semibold text-dark"><?= $sales_itemdata->u_product_type; ?></span></span>

@@ -1337,11 +1337,14 @@ public function remove_processMapping($id,$produt_type_id)
 
 
 
-public function showAssignProcessForm($doc_entry=null,$header_id = null, $salesitem_id = null,$id=null){
+public function showAssignProcessForm($doc_entry=null, $line_num = null,$id=null){
     if ($this->session->userdata('user_login_access') != false) {
 
+     
+        $data['sales_itemdata']=$this->sales_model->getSalesitems($doc_entry,$line_num);
+        
+      
 
-         $data['sales_itemdata']=$this->sales_model->getSalesitems($header_id,$salesitem_id);
 
         if($id)
         {
@@ -1357,14 +1360,15 @@ public function showAssignProcessForm($doc_entry=null,$header_id = null, $salesi
        
 
         $product_type=$data['sales_itemdata']->u_product_type;
+       
 
-
+    
         $product_id=$this->db->query("select id from products where product_name='$product_type'")->row()->id;
 
         if (!$product_id) {
                  
           $this->session->set_flashdata('error',"Product Not Found");
-          redirect('Transaction/getitems/'.base64_encode($header_id));
+          redirect('Transaction/getitems/'.base64_encode($doc_entry));
          }
 
         $data['product_id'] = $product_id;
@@ -1877,6 +1881,7 @@ public function save_Machine()
         $id=$this->input->post('id');
         $code=$this->input->post('machine_code');
         $name=$this->input->post('machine_name');
+        $printing_machine=$this->input->post('printing_machine');
         $description=$this->input->post('description');
         $main_operators=$this->input->post('operators');
         $helpers=$this->input->post('helpers');
@@ -1913,6 +1918,7 @@ public function save_Machine()
                 'main_operator'=>$main_operator,
                 'helper'=>$helper,
                 'shift_pattern'=>$shift_pattern,
+                'printing_machine'=>$printing_machine,
                 'shift_time'=>$shift_time,
                 'setup_time'=>$setup_time,
                 'changeover_time'=>$changeover_time,
@@ -1928,8 +1934,6 @@ public function save_Machine()
                 'production_capacity' => $production_capacity,
                 'gauge'=>$guageArray
 
-
-                
         );
 
         if($id && $id!=''){

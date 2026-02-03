@@ -41,68 +41,7 @@ class Transaction extends CI_Controller {
 
 	}
 
-	// public function getSalesorderList()
-	// {
-	// 	$data = $row = array();
- //          $draw   = isset($_POST['draw']) ? (int)$_POST['draw'] : 1;
- //          $start  = isset($_POST['start']) ? (int)$_POST['start'] : 0;
- //         $length = isset($_POST['length']) ? (int)$_POST['length'] : 10;
-         
- //            $this->column_search = array('DocNum', 'DocDate','CardName');
- //            $sql = "select * from salesorderheader where DocStatus='O'";
-            
 
- //            $sql1 = $sql;
- //            if (!empty($_POST['search']['value'])) {
- //                $sql .= " AND (";
- //            }
- //            $i = 0;
- //            foreach ($this->column_search as $item) {
- //                if (!empty($_POST['search']['value'])) {
- //                    $sql .= "$item Like '%" . $_POST['search']['value'] . "%' OR ";
- //                }
- //                $i++;
- //            }
- //            if (!empty($_POST['search']['value'])) {
- //                $sql = rtrim($sql, ' OR ');
- //                $sql .= ")";
- //            }
- //            $sql.= "  order by id ";
- //            $wolimit = $sql;
- //            if(!empty($_POST['length']) && $_POST['length'] != -1)
- //            {
- //                $sql .=" OFFSET $start ROWS FETCH NEXT $length ROWS ONLY";
- //            }
-
-
- //            $itemdata = $this->db->query($sql)->result();
- //            $j = $_POST['start'];
- //            foreach ($itemdata as $value) {
- //                 $j++;
- //        	 $actionbutton ='<a href="'.base_url('Transaction/getItems/'.base64_encode($value->id)).'" class="btn btn-sm btn-info"><i class="fa fa-eye fa-sm"></i> Items</a>';
- //            	$data[] = array(
- //                   $value->id,
- //                   $value->DocDate,
- //                   $value->DocNum,
- //                   $value->CardName,
- //                   $actionbutton
-
- //                );
-
-
-               
- //            }
- //              $output = array(
- //                "draw" => $_POST['draw'],
- //                "recordsTotal" => $this->db->query($sql1)->num_rows(),
- //                "recordsFiltered" => $this->db->query($wolimit)->num_rows(),
- //                "data" => $data,
- //            );
-
- //            // Output to JSON format
- //            echo json_encode($output);
-
-	// }
 
     public function getSalesorderList()
 {
@@ -113,7 +52,7 @@ class Transaction extends CI_Controller {
     $length = (int)$_POST['length'];
     $search = $_POST['search']['value'];
 
-    $column_search = array('DocNum', 'DocDate', 'CardName');
+    $column_search = array('DocEntry','DocNum', 'DocDate', 'CardName');
 
     /* =======================
        BASE WHERE CONDITION
@@ -132,20 +71,31 @@ class Transaction extends CI_Controller {
     /* =======================
        DATA QUERY (LIMITED)
     ======================= */
+    // $sql = "
+    //     SELECT id, DocDate, DocNum, CardName
+    //     FROM salesorderheader
+    //     $where
+    //     ORDER BY id
+    //     OFFSET $start ROWS FETCH NEXT $length ROWS ONLY
+    // ";
+
     $sql = "
-        SELECT id, DocDate, DocNum, CardName
-        FROM salesorderheader
-        $where
-        ORDER BY id
-        OFFSET $start ROWS FETCH NEXT $length ROWS ONLY
-    ";
+    SELECT id, DocDate, DocNum, CardName, DocEntry From salesorderheader
+    $where
+
+    ORDER BY id DESC
+    OFFSET $start ROWS FETCH NEXT $length ROWS ONLY";
+
+// echo $sql; die;
+
+
 
     $itemdata = $this->db->query($sql, FALSE); // unbuffered
 
     foreach ($itemdata->result() as $value) {
 
         $actionbutton =
-            '<a href="'.base_url('Transaction/getItems/'.base64_encode($value->id)).'"
+            '<a href="'.base_url('Transaction/getItems/'.base64_encode($value->DocEntry)).'"
              class="btn btn-sm btn-info">
              <i class="fa fa-eye fa-sm"></i> Items</a>';
 
@@ -164,12 +114,13 @@ class Transaction extends CI_Controller {
 
     // Total records
     $totalRecords = $this->db->query(
-        "SELECT COUNT(*) AS total FROM salesorderheader WHERE DocStatus='O'"
+        "SELECT COUNT(*) AS total
+            FROM  salesorderheader
+            WHERE DocStatus = 'O'"
     )->row()->total;
 
     // Filtered records
-    $filteredRecords = $this->db->query(
-        "SELECT COUNT(*) AS total FROM salesorderheader $where"
+    $filteredRecords = $this->db->query("SELECT COUNT(*) AS total FROM  salesorderheader $where"  
     )->row()->total;
 
     /* =======================
@@ -186,15 +137,15 @@ class Transaction extends CI_Controller {
 }
 
 
-    public function getItems($id){
+    public function getItems($doc_entry){
 
         if($this->session->userdata('user_login_access')!=false)
         {
-            $id=base64_decode($id);
+            $doc_entry=base64_decode($doc_entry);
 
-            $data['salesItems']=$this->sales_model->getSalesitems($id);
+            $data['salesItems']=$this->sales_model->getSalesitems($doc_entry);
 
-            $data['sales_id']=$id;
+            $data['sales_id']=$doc_entry;
             $this->load->view('transaction/salesItems',$data);
 
         }
@@ -211,6 +162,7 @@ public function save_salesProcess()
         $id = $this->input->post('id');
         $sales_id = $this->input->post('sales_id');
         $product_id = $this->input->post('product_id');
+        $sales_line = $this->input->post('sales_line');
         $doc_entry=$this->input->post('doc_entry');
         $new_design = $this->input->post('new_design') === 'Y' ? 'Y' : 'N';
         $new_design_text = $this->input->post('new_designtext');
@@ -228,6 +180,7 @@ public function save_salesProcess()
         $headerData = [
             'product_id' => $product_id,
             'sales_item_id' => $id,
+            'salesitemLine' => $sales_line,
             'new_design' => $new_design,
             'new_design_text' => $new_design_text,
             'repeat_design' => $repeat_design,
@@ -357,7 +310,7 @@ public function save_salesProcess()
         } else {
            // $this->session->set_flashdata("success", "Successfully inserted");
            // redirect('Transaction/preview/'.base64_encode($sales_id).'/'.base64_encode($id));
-        redirect('Transaction/preview/'.base64_encode($sales_id).'/'.base64_encode($header_id));
+        redirect('Transaction/preview/'.base64_encode($sales_line).'/'.base64_encode($doc_entry));
         }
 
        // redirect('Transaction/getItems/' . base64_encode($sales_id));
@@ -373,6 +326,7 @@ public function update_salesProcess()
         $sales_id = $this->input->post('sales_id');
         $doc_entry=$this->input->post('doc_entry');
         $product_id = $this->input->post('product_id');
+         $sales_line = $this->input->post('sales_line');
         $id = $this->input->post('id');
         $new_design = $this->input->post('new_design') === 'Y' ? 'Y' : 'N';
         $new_design_text = $this->input->post('new_designtext');
@@ -391,6 +345,7 @@ public function update_salesProcess()
         $headerData = [
             'product_id' => $product_id,
             'sales_item_id' => $id,
+            'salesitemLine' => $sales_line,
             'doc_entry'=>$doc_entry,
             'new_design' => $new_design,
             'new_design_text' => $new_design_text,
@@ -523,44 +478,49 @@ public function update_salesProcess()
         } else {
             $this->session->set_flashdata("success", "Successfully inserted");
            // redirect('Transaction/preview/'.base64_encode($sales_id).'/'.base64_encode($id));
-        redirect('Transaction/preview/'.base64_encode($sales_id).'/'.base64_encode($header_id));
+        redirect('Transaction/preview/'.base64_encode($sales_line).'/'.base64_encode($doc_entry));
         }
    }
 
   
-    public function preview($sales_id,$process_id)
+    public function preview($sales_line,$doc_entry)
     {
-        $sales_id=base64_decode($sales_id);
+        $sales_line=base64_decode($sales_line);
 
-        $process_id = base64_decode($process_id);
+        $doc_entry = base64_decode($doc_entry);
        
-        $process_header=$this->db->query("select * from sales_process_header where id='$process_id'")->row();
-        $data['sales_item_id']=$process_header->sales_item_id;
+        $process_header=$this->db->query("select * from sales_process_header where doc_entry='$doc_entry' and salesitemLine='$sales_line'")->row();
+        $data['sales_line']=$process_header->sales_item_id;
         $data['process_header']=$process_header;
-        $data['process']=$this->sales_model->getAssignprocess($process_id);
-        $data['salesdata']=$this->sales_model->getSalesitems($sales_id,$data['sales_item_id']);
+        $data['process']=$this->sales_model->getAssignprocess($process_header->id);
+        $data['salesdata']=$this->sales_model->getSalesitems($doc_entry,$sales_line);
 
         $this->load->view('transaction/preview',$data);
 
     }
 
-    public function updatePreviewAndPrint()
+    public function updatePreviewAndPrint($sales_line=null,$doc_entry=null)
     {
 
-        $sales_item_id=$this->input->post('sales_item_id');
-        $sales_header=$this->input->post('sales_header');
+         $sales_item_id=$this->input->post('sales_item_id');
+         $sales_header=$this->input->post('sales_header');
+        $sales_line = $sales_line ?? $this->input->post('salesitem_line');
+        $doc_entry = $doc_entry ?? $this->input->post('doc_entry');
 
 
-        $id=$this->input->post('id');
-        $dataupdate=array('is_submit'=>'Y');
-        $this->db->where('id',$id);
-        $this->db->update('sales_process_header',$dataupdate);
+        // $id=$this->input->post('id');
+        // $dataupdate=array('is_submit'=>'Y');
+        // $this->db->where('id',$id);
+        // $this->db->update('sales_process_header',$dataupdate);
 
-        $process_header=$this->db->query("select * from sales_process_header where id='$id'")->row();
-        $this->data['sales_item_id']=$sales_item_id;
+         $process_header=$this->db->query("select * from sales_process_header where doc_entry='$doc_entry' and salesitemLine='$sales_line'")->row();
+
+        
+        $this->data['sales_item_id']=$process_header->sales_item_id;
         $this->data['process_header']=$process_header;
-        $this->data['process']=$this->sales_model->getAssignprocess($id);
-      $this->data['salesdata']=$this->sales_model->getSalesitems($sales_header,$sales_item_id);
+        $this->data['process']=$this->sales_model->getAssignprocess($process_header->id);
+       // print_r($this->data['process']); die;
+      $this->data['salesdata']=$this->sales_model->getSalesitems($doc_entry,$sales_line);
 
          $this->load->library('Pdf');
 
@@ -574,24 +534,7 @@ public function update_salesProcess()
     }
 
 
-// public function getProcessesByRouting() {
-//     $routing_id = $this->input->post('routing_id');
-    
-//     $this->db->select('seq,group_id, process_id,layout_id');
-//     $this->db->where('rout_id', $routing_id);
-//     $query = $this->db->get('rout_detail')->result();
 
-//     $result = [];
-//     foreach ($query as $r) {
-//         $result[$r->layout_id][$r->group_id]['processes'][] = $r->process_id;
-
-//         // Sequence for each process
-//         $result[$r->layout_id][$r->group_id]['seq'][$r->process_id] = $r->seq;
-      
-//     }
-
-//     echo json_encode($result);
-// }
 
 
 public function getProcessesByRouting() {
@@ -655,7 +598,7 @@ public function getProcessesByRouting() {
     echo json_encode($result);
 }
 
-public function productionOrder()
+public function UnPlannedSO()
 {
     if($this->session->userdata('user_login_access')!=false)
     {
@@ -668,8 +611,9 @@ public function productionOrder()
                 $this->load->view('errorPage', $data);
                 return;
             }
+        $data['printing_machines'] = $this->db->query("SELECT * FROM machines WHERE is_deleted='N' and printing_machine='Y'")->result();
      
-        $this->load->view('transaction/product_orders');
+        $this->load->view('transaction/unPlannedSO',$data);
     }
     else{
 
@@ -681,320 +625,315 @@ public function productionOrder()
 
 
 
-public function getProductOrderList()
+public function getUnPlanningList()
 {
     $draw   = intval($this->input->post("draw"));
     $start  = intval($this->input->post("start"));
     $length = intval($this->input->post("length"));
 
-       $product_type  = $this->input->post('product_type');
-     $product_size  = $this->input->post('product_size');
-     $product_gauge = $this->input->post('product_gauge');
+    $qty = $this->input->post('qty');
+    // $product_type  = $this->input->post('product_type');
+    // $product_size  = $this->input->post('product_size');
+    // $product_gauge = $this->input->post('product_gauge');
 
     $search = $_POST['search']['value'] ?? '';
 
-    /* Searchable columns */
-    $column_search = [
-        'p.doc_entry',
-        'p.doc_num',
-        'p.product_no',
-        'p.product_name',
-        'p.planned_qty',
-        'p.item_code',
-        'p.item_name'
-    ];
-
-    /* =======================
-       WHERE CONDITIONS
-    ======================= */
-    $where = " WHERE p.status <> 'C' AND i.deleted = 'N' ";
-
-    if ($product_size) {
-        $where .= " AND i.u_ait_prod_size = ".$this->db->escape($product_size);
-    }
-    if ($product_gauge) {
-        $where .= " AND i.u_ait_guage = ".$this->db->escape($product_gauge);
-    }
-    if ($product_type) {
-        $where .= " AND i.u_product_type = ".$this->db->escape($product_type);
+    $where = " WHERE h.DocStatus = 'O' and i.LineStatus!='C' and i.OpenQty>0 and (i.DHTInsidePrinting!='' OR i.DHTInsidePrinting IS NOT NULL)";
+    if ($qty) {
+        $where .= " AND i.OpenQty = " . $this->db->escape($qty);
     }
 
-    /* Global search */
+   
+
     if (!empty($search)) {
         $search = $this->db->escape_like_str($search);
-        $where .= " AND (";
-        foreach ($column_search as $col) {
-            $where .= "$col LIKE '%$search%' OR ";
-        }
-        $where = rtrim($where, ' OR ');
-        $where .= ")";
+        $where .= " AND (h.DocNum LIKE '%$search%' OR i.ItemCode LIKE '%$search%' OR i.Dscription LIKE '%$search%' OR h.CardName LIKE '%$search%')";
     }
 
-    /* =======================
-       DATA QUERY
-    ======================= */
-    $paging = "ORDER BY p.id DESC OFFSET $start ROWS FETCH NEXT $length ROWS ONLY";
-    if ($length == -1) {
-        $paging = "";
+    // $sql = "SELECT DISTINCT
+    //            i.LineNum,
+    //            i.ItemCode,
+    //            i.OpenQty,
+    //            h.DocNum,
+    //            tm.u_ait_prod_size,
+    //            tm.u_ait_guage,
+    //            tm.u_product_type,
+    //            i.BaseEntry,
+    //            i.Dscription
+    //     FROM salesorderitems i
+    //     INNER JOIN salesorderheader h ON i.BaseEntry = h.DocEntry
+    //     INNER JOIN item_master tm ON i.ItemCode = tm.item_code
+    //     $where
+    //     ORDER BY tm.u_product_type,tm.u_ait_prod_size,tm.u_ait_guage,i.LineNum";
+
+    $sql="SELECT 
+       i.LineNum,
+       i.is_process_assign,
+       i.ItemCode,
+       h.cardName,
+       i.OpenQty,
+       h.DocNum,
+       h.DocDate,
+       DATEDIFF(day, i.TracingDate, GETDATE()) AS tracing_days,
+       tm.u_ait_prod_size,
+       tm.u_ait_guage,
+       tm.u_product_type,
+       i.DocEntry,
+       b.Preference,
+	   b.ItemName,
+       b.itemNo as rawMaterialNo,
+       b.UPS,
+       i.DHTInsidePrinting,
+       i.DHTMulti,
+       i.Dscription
+FROM salesorderitems i
+INNER JOIN salesorderheader h 
+       ON i.DocEntry = h.DocEntry
+INNER JOIN item_master tm 
+       ON i.ItemCode = tm.item_code
+INNER JOIN BOMItems b 
+       ON i.ItemCode = b.BOMHeaderId
+       AND b.Preference = '1'
+       $where
+ORDER BY 
+       tm.u_product_type,
+       tm.u_ait_prod_size,
+       tm.u_ait_guage, i.OpenQty DESC,
+       i.LineNum";
+    
+
+   // echo $sql; die;
+
+    $sql1=$sql;
+
+//     $countSql = "SELECT COUNT(*) AS cnt FROM ($sql1) AS t";
+
+//    // echo $countSql; die;
+//     $totalRecords = $this->db->query($countSql)->row()->cnt;
+
+    if ($length != -1) {
+        $sql .= " OFFSET $start ROWS FETCH NEXT $length ROWS ONLY";
     }
-/*
-    $sql = "
-        SELECT 
-            p.id,
-            p.doc_entry,
-            p.doc_num,
-            p.product_no,
-            p.product_name,
-            p.planned_qty,
-            p.item_code,
-            p.item_name,
-            so.DocNum as salesorder,
-            i.u_product_type,
-            i.u_ait_prod_size,
-            i.u_ait_guage
-        FROM production_order p
-        INNER JOIN (
-            SELECT doc_entry, MAX(id) AS max_id
-            FROM production_order
-            WHERE status <> 'C'
-            GROUP BY doc_entry
-        ) g 
-            ON p.doc_entry = g.doc_entry 
-           AND p.id = g.max_id
-        INNER JOIN item_master i
-            ON p.product_no = i.item_code
-    OUTER APPLY (
-    SELECT TOP 1 DocNum
-    FROM salesorderheader so
-    WHERE so.DocEntry = p.origin_doc_entry
-    ORDER BY so.DocEntry DESC
-) so
 
-      
-        $where
-        ORDER BY p.id DESC
-        OFFSET $start ROWS
-        FETCH NEXT $length ROWS ONLY
-    ";*/
-
-  $sql = "
-        WITH PagedOrders AS (
-            SELECT 
-                p.id,
-                p.doc_entry,
-                p.doc_num,
-                p.product_no,
-                p.product_name,
-                p.planned_qty,
-                p.item_code,
-                p.item_name,
-                p.origin_doc_entry,
-                i.u_product_type,
-                i.u_ait_prod_size,
-                i.u_ait_guage
-            FROM production_order p
-            INNER JOIN (
-                SELECT doc_entry, MAX(id) AS max_id
-                FROM production_order
-                WHERE status <> 'C'
-                GROUP BY doc_entry
-            ) g 
-                ON p.doc_entry = g.doc_entry 
-               AND p.id = g.max_id
-            INNER JOIN item_master i
-                ON p.product_no = i.item_code
-            $where
-            $paging
-        )
-        SELECT 
-            po.*,
-            (SELECT TOP 1 DocNum FROM salesorderheader so WHERE so.DocEntry = po.origin_doc_entry) as salesorder
-        FROM PagedOrders po
-        ORDER BY po.id DESC ";
     $query = $this->db->query($sql)->result();
-
-    
+    //echo $this->db->last_query(); die;
 
     $data = [];
+
+    $x=1;
     foreach ($query as $row) {
-
-        $actionbutton =
-            '<button type="button" class="btn btn-primary btn-sm"
-                onclick="filteredRecords('.$row->doc_entry.')">Filtered</button>';
-
+        $planseq = "<select class='form-control planseq-select' id='planseq_" . $x . "' name='planseq[]' onchange='checkValidation(this)' 
+                    data-size='{$row->u_ait_prod_size}' 
+                    data-gauge='{$row->u_ait_guage}' 
+                    data-type='{$row->u_product_type}' 
+                    data-qty='{$row->OpenQty}' data-ups='{$row->UPS}' data-rawMaterialNo='{$row->rawMaterialNo}'>
+                    <option value=''>Select</option>
+                    <option value='1'>1</option>
+                    <option value='2'>2</option>
+                    <option value='3'>3</option>
+                    <option value='4'>4</option>
+                    <option value='5'>5</option>
+                </select>";
+    
         $data[] = [
-            '<input type="checkbox"  class="row-check"
-                value="'.$row->doc_entry.'" data-product_type="'.$row->u_product_type.'"
-                data-product_size="'.$row->u_ait_prod_size.'"
-                data-product_gauge="'.$row->u_ait_guage.'"
-               >',
-            $row->doc_entry,
-            $row->doc_num,
-            $row->salesorder,
-           // $row->item_code,
-            $row->item_name,
-
-            $row->product_no,
-            $row->product_name,
-            $row->planned_qty,
-            $actionbutton
+           
+            $planseq,
+            
+            $row->DocEntry . '<input type="hidden" name="doc_entry[]" value="' . $row->DocEntry . '"><input type="hidden" name="line_num[]" value="' . $row->LineNum . '">',
+          
+            $row->DocNum,
+            $row->DocDate,
+            $row->cardName . ($row->is_process_assign == 'Y' ? '<br><a href="'.base_url('Transaction/updatePreviewAndPrint/'.$row->LineNum.'/'.$row->DocEntry).'" class="btn btn-sm btn-success">Color Slip</a>' : ''),
+            $row->ItemCode,
+            $row->Dscription,
+             $row->ItemName,
+            $row->OpenQty,
+            '',
+            $row->DHTMulti,
+            '',
+            $row->tracing_days . '<input type="hidden" name="tracing_days[]" value="' . $row->tracing_days . '">',
+            '<input type="text" class="form-control" name="machine_name[]" id="rowMachineName_'.$x.'" readonly>
+            <input type="hidden" name="machineid[]" id="rowMachine_'.$x.'">'
+           
+           
         ];
+        $x++;
     }
 
-    /* =======================
-       COUNT QUERY (MATCHING)
-    ======================= */
-    $countSql = "
-        SELECT COUNT(*) AS cnt
-        FROM (
-            SELECT p.doc_entry
-            FROM production_order p
-            INNER JOIN (
-                SELECT doc_entry, MAX(id) AS max_id
-                FROM production_order
-                WHERE status <> 'C'
-                GROUP BY doc_entry
-            ) g 
-                ON p.doc_entry = g.doc_entry 
-               AND p.id = g.max_id
-            INNER JOIN item_master i
-                ON p.product_no = i.item_code
-            $where
-        ) x
-    ";
-
-    $recordsFiltered = $this->db->query($countSql)->row()->cnt;
-
     echo json_encode([
-        "draw" => $draw,
-        "recordsTotal" => $recordsFiltered,
-        "recordsFiltered" => $recordsFiltered,
-        "data" => $data
+        "draw"            => $draw,
+        "recordsTotal"    => $this->db->query($sql1)->num_rows(),
+        "recordsFiltered" => $this->db->query($sql1)->num_rows(),
+        "data"            => $data
     ]);
 }
 
-
-public function Process()
+public function saveUnPlannedSO()
 {
-    $data['docEntries'] = $this->input->post('doc_entries');
-    $docEntries = json_decode($data['docEntries'], true);
-     $data['items'] = $this->sales_model->getItemsByDocEntries($docEntries);
-
-    $this->load->view('transaction/itemsForPlanned', $data);
-  
-}
-
-public function getdataProcess12()
-{
-    $docEntries = json_decode($this->input->post('doc_entries'), true);
-  
-    $draw = $this->input->post('draw');
-
-    if (empty($docEntries)) {
-        echo json_encode([
-            "draw" => $draw,
-            "recordsTotal" => 0,
-            "recordsFiltered" => 0,
-            "data" => []
-        ]);
-        return;
+    if ($this->session->userdata('user_login_access') == false) {
+        redirect(base_url(), 'refresh');
     }
 
-    
-    $items = $this->sales_model->getItemsByDocEntries($docEntries);
-    
-    $data = [];
-    foreach ($items as $row) {
+    $planseq = $this->input->post('planseq');
+    $doc_entry = $this->input->post('doc_entry');
+    $line_num = $this->input->post('line_num');
+    $tracing_days = $this->input->post('tracing_days');
+    $machineid = $this->input->post('machineid');
+    $unique_no = date('YmdHis') . rand(10, 99);
 
-        $data[] = [
-            'checkbox'     => '<input type="checkbox" class="row-check" value="'.$row->doc_entry.'" name="doc_entries[]">',
-            'doc_entry'    => $row->doc_entry,
-            'doc_num'      => $row->doc_num,
-            'salesorder'   => $row->salesorder,
-            'CardName'     => $row->CardName,
-            'item_code'    => $row->item_code,
-            'item_name'    => $row->item_name,
-            'product_no'   => $row->product_no,
-            'product_name' => $row->product_name,
-            'planned_qty'  => $row->planned_qty
-        ];
-        // $data[] = [
-        //     '<input type="checkbox"  class="row-check"
-        //         value="'.$row->doc_entry.'"  name="doc_entries[]"
-        //        >',
-        //     $row->doc_entry,
-        //     $row->doc_num,
-        //     $row->salesorder,
-        //     $row->CardName,
-        //     $row->item_code,
-        //     $row->item_name,
-        //     $row->product_no,
-        //     $row->product_name,
-        //     $row->planned_qty
-        // ];
+    if (!empty($planseq)) {
+        $success = false;
+        foreach ($planseq as $key => $val) {
+            if ($val != '') {
+                $data = [
+                    'plannedId'   => $unique_no,
+                    'planSeq'     => $val,
+                    'DocEntry'    => $doc_entry[$key],
+                    'LineNum'     => $line_num[$key],
+                    'tracingDays' => $tracing_days[$key],
+                    'machine'     => $machineid[$key],
+                    'createdBy'   => $this->session->userdata('user_login_id'),
+                    'createdAt'   => date('Y-m-d H:i:s')
+                ];
+                if ($this->db->insert('plannedSO', $data)) {
+                    $success = true;
+                }
+            }
+        }
+
+        if ($success) {
+            $this->session->set_flashdata('success', 'Successfully Saved');
+            redirect('Transaction/plannedSO/'.base64_encode($unique_no));
+        } else {
+            $this->session->set_flashdata('error', 'Failed to save data');
+            redirect('Transaction/unPlannedSO');
+        }
     }
-
-    $recordsTotal = count($items);
-    $recordsFiltered = $recordsTotal;
-
-    echo json_encode([
-        "draw" => $draw,
-        "recordsTotal" => $recordsTotal,
-        "recordsFiltered" => $recordsFiltered,
-        "data" => $data
-    ]);
-
+   
     
 }
 
-public function getdataProcess()
+
+public function plannedSO($plannedId)
 {
-    $docEntries = json_decode($this->input->post('doc_entries'), true);
-
-    if (empty($docEntries)) {
-        echo json_encode(['data' => []]);
-        return;
+    if ($this->session->userdata('user_login_access') == false) {
+        redirect(base_url(), 'refresh');
     }
 
-    // Fetch all items for selected doc_entries
-    $items = $this->sales_model->getItemsByDocEntries($docEntries);
+    $plannedId=base64_decode($plannedId);
 
-    // Group items by doc_entry
-    $grouped = [];
-    foreach ($items as $item) {
-        $grouped[$item->doc_entry][] = $item;
+    $sql="SELECT 
+            a.*,
+            b.ItemCode,
+            b.Dscription,
+            b.OpenQty,
+            b.DHTMulti,
+            c.machine_name,
+            d.itemName as raw_material,
+            d.ItemNo as raw_material_code
+        FROM plannedSO a
+        INNER JOIN salesorderitems b 
+            ON a.DocEntry = b.DocEntry 
+        AND a.LineNum = b.LineNum
+        INNER JOIN machines c 
+            ON a.machine = c.code
+        INNER JOIN BOMItems d 
+            ON b.ItemCode = d.BOMHeaderId
+        AND d.Preference = '1'
+        WHERE a.plannedId = '$plannedId'
+        AND a.is_planned = 'N' order by a.planSeq ASC";
+
+    $data['plannedSO']=$this->db->query($sql)->result();
+    $this->load->view('transaction/plannedSO',$data);
+}
+public function savePlanItems()
+{
+    if ($this->session->userdata('user_login_access') == false) {
+        redirect(base_url(), 'refresh');
     }
 
-    // Prepare JSON for DataTables
-    $data = [];
-    foreach ($grouped as $docEntry => $itemRows) {
-        // Add a heading row
-        $data[] = [
-            'is_header' => true,
-            'doc_entry' => $docEntry,
-            'count' => count($itemRows)
-        ];
+    $selectedItems = $this->input->post('item');
+    $insertedIds = [];
 
-        // Add actual item rows
-        foreach ($itemRows as $item) {
-            $data[] = [
-                'is_header'     => false,
-                'doc_entry'     => $item->doc_entry,
-                'doc_num'       => isset($item->doc_num) ? $item->doc_num : '',
-                'salesorder'    => isset($item->salesorder) ? $item->salesorder : '',
-                'CardName'      => isset($item->CardName) ? $item->CardName : '',
-                'item_code'     => isset($item->item_code) ? $item->item_code : '',
-                'item_name'     => isset($item->item_name) ? $item->item_name : '',
-                'product_no'    => isset($item->product_no) ? $item->product_no : '',
-                'product_name'  => isset($item->product_name) ? $item->product_name : '',
-                'planned_qty'   => isset($item->planned_qty) ? $item->planned_qty : 0
-            ];
+    if (!empty($selectedItems)) {
+        foreach ($selectedItems as $item) {
+            $parts = explode('|', $item);
+            if (count($parts) === 4) {
+                $insertData = [
+                    'doc_entry'    => $parts[0],
+                    'itemcode'     => $parts[1],
+                    'productcode'  => $parts[2],
+                    'qty'          => $parts[3],
+                    'created_by'   => $this->session->userdata('user_login_id'),
+                    'created_at'   => date('Y-m-d H:i:s')
+                ];
+                $this->db->insert('planningProcess', $insertData);
+                $insertedIds[] = $this->db->insert_id();
+            }
         }
     }
 
-    // Return JSON for DataTables
-    echo json_encode(['data' => $data]);
+    if (!empty($insertedIds)) {
+      
+        $this->session->set_flashdata('success', 'Successfully Saved');
+        $encodedIds = base64_encode(implode(',', $insertedIds));
+        redirect('transaction/createNewPlanning?ids=' . $encodedIds);
+    } else {
+        $this->session->set_flashdata('error', 'No items selected');
+         redirect('transaction/productionOrder');
+    }
 }
+
+public function createNewPlanningold()
+{
+   
+    if ($this->session->userdata('user_login_access') != false) {
+        $selectedItems = $this->input->post('item');
+        if (empty($selectedItems)) {
+             $this->session->set_flashdata("error", "No items selected");   
+            redirect('transaction/Process');
+             return;
+        }
+
+        $parsedItems = [];
+        foreach ($selectedItems as $item) {
+            $parts = explode('|', $item);
+            if (count($parts) === 2) {
+                $parsedItems[] = [
+                    'doc_entry' => $parts[0],
+                    'item_code' => $parts[1]
+                ];
+            }
+        }
+
+        if (empty($parsedItems)) {
+             $this->session->set_flashdata("error", "Invalid items selected");   
+            redirect('transaction/Process');
+             return;
+        }
+
+        $data['selectedItems'] = $this->sales_model->getItemsByDocEntryAndItemCode($parsedItems);
+        $data['machines'] = $this->master_model->getMachines();
+       // $data['urldata'] = $this->Access_model->get_menu_data();
+         
+        $this->load->view('Transaction/addnewPlanning', $data);
+
+    } else {
+        redirect(base_url(), 'refresh');
+    }
+}
+public function createNewPlanning($encodedIds)
+{
+    $decodedIds = base64_decode($encodedIds);
+    $ids = explode(',', $decodedIds);
+    $data['selectedItems'] = $this->sales_model->getplanningProcessItemsByIds($ids);
+    $data['machines'] = $this->master_model->getMachines();
+    $this->load->view('Transaction/addnewPlanning', $data);
+}
+
+
+
+
 
 
 

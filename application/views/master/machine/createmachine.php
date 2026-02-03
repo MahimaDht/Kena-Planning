@@ -44,20 +44,15 @@ $this->load->view('include/header');
                                                 <label class="form-label">Description</label>
                                                 <input type="text" name="description" id="description" class="form-control"  value="<?php echo $editdata->description; ?>">
                                             </div>
-                                            <!-- <div class="col-md-6">
-                                                <label class="form-label">Hourly Impression*</label>
-                                                <input type="number" name="hourly_impression" id="hourly_impression" class="form-control" min="0"  value="<?php echo $editdata->hourly_impression; ?>">
-                                            </div> -->
 
-
-                                            <!-- <div class="col-md-6">
-                                                <label class="form-label">Changeover Time*</label>
-                                                <input type="text" name="changeover_time" id="changeover_time" class="form-control"  value="<?php echo $editdata->change_overtime; ?>">
-                                            </div>
                                             <div class="col-md-6">
-                                                <label class="form-label">Production Capacity*</label>
-                                                <input type="text" name="production_capacity" id="production_capacity" class="form-control" value="<?php echo $editdata->production_capacity; ?>">
-                                            </div> -->
+                                                <label for="printing_machine">Printing Machine</label>
+                                                <select name="printing_machine" id="printing_machine" class="form-control">
+                                                    <option value="N" <?php echo $editdata->printing_machine == 'NO' ? 'selected' : ''; ?>>NO</option>
+                                                    <option value="Y" <?php echo $editdata->printing_machine == 'YES' ? 'selected' : ''; ?>>YES</option>
+                                                </select>
+                                            </div>
+                                           
 
 
                                               <div class="col-md-6">
@@ -207,6 +202,13 @@ $this->load->view('include/header');
                                             <div class="col-md-6">
                                                 <label class="form-label">Description</label>
                                                 <input type="text" name="description" id="description" class="form-control">
+                                            </div>
+                                             <div class="col-md-6">
+                                                <label for="printing_machine">Printing Machine</label>
+                                                <select name="printing_machine" id="printing_machine" class="form-control">
+                                                    <option value="NO" selected>NO</option>
+                                                    <option value="YES">YES</option>
+                                                </select>
                                             </div>
                                           <!--   <div class="col-md-6">
                                                 <label class="form-label">Hourly Impression*</label>

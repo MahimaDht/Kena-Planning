@@ -7,21 +7,25 @@ class Sales_model extends CI_Model
         parent::__construct();
     }
 
-  public function getSalesitems($head_id,$id=null)
+  public function getSalesitems($DocEntry,$LineNum=null)
   {
-    if($id)
+
+
+    if($LineNum!=null && $LineNum!='')
     {
-        $sql="select a.*,a.id as salesitem_id,b.*,c.* from salesorderitems as a ,salesorderheader as b,item_master as c where a.header_id='$head_id' and a.header_id=b.id and a.ItemCode=c.item_code and a.id='$id'";
-        //echo $sql; die;
+        $sql="select a.*,a.id as salesitem_id,b.*,c.* from salesorderitems as a ,salesorderheader as b,item_master as c where a.DocEntry='$DocEntry' and a.DocEntry=b.DocEntry and a.ItemCode=c.item_code and a.LineNum='$LineNum'";
+   
        
           $result = $this->db->query($sql);
          return $result->row();
     }
-
-    $sql="select a.*,a.id as salesitem_id,b.*,c.* from salesorderitems as a ,salesorderheader as b,item_master as c where a.header_id='$head_id' and a.header_id=b.id and a.ItemCode=c.item_code";
-   
-      $result = $this->db->query($sql);
-      return $result->result();
+    else{
+            $sql="select a.*,a.id as salesitem_id,b.*,c.* from salesorderitems as a ,salesorderheader as b,item_master as c where a.DocEntry='$DocEntry' and a.DocEntry=b.DocEntry and a.ItemCode=c.item_code";
+       
+            $result = $this->db->query($sql);
+            return $result->result();
+    
+    }
 
 
   } 
@@ -92,35 +96,111 @@ public function getItemsByDocEntries($docEntries)
   
 
     $entries = implode(',', array_map([$this->db, 'escape'], (array) $docEntries));
-    $sql = "
+    // $sql = "
+    //     SELECT 
+    //         p.doc_entry,
+    //         p.doc_num,
+    //         so.DocNum as salesorder,
+    //         so.CardName,
+    //         p.item_code,
+    //         p.item_name,
+    //         p.product_no,
+    //         p.product_name,
+    //         p.planned_qty
+    //     FROM production_order p
+       
+    //     OUTER APPLY (
+    //         SELECT TOP 1 DocNum, CardName
+    //         FROM salesorderheader
+    //         WHERE DocEntry = p.origin_doc_entry
+    //         ORDER BY DocEntry DESC
+    //     ) so
+    //     WHERE p.doc_entry IN ($entries)
+    // ";
+
+
+     $sql = "
         SELECT 
             p.doc_entry,
             p.doc_num,
-            so.DocNum as salesorder,
-            so.CardName,
             p.item_code,
             p.item_name,
+            p.itemuomname,
             p.product_no,
             p.product_name,
-            p.planned_qty
+            p.planned_qty,
+            p.item_planned_qty,
+            p.id
         FROM production_order p
-       
-        OUTER APPLY (
-            SELECT TOP 1 DocNum, CardName
-            FROM salesorderheader
-            WHERE DocEntry = p.origin_doc_entry
-            ORDER BY DocEntry DESC
-        ) so
-        WHERE p.doc_entry IN ($entries)
-    ";
+        WHERE  p.itemware_house ='VSEMIFIN' and p.doc_entry IN ($entries)";
 
     $items = $this->db->query($sql)->result();
     return $items;
 }
 
+public function getItemsByIds($ids)
+{
+    if (empty($ids)) return [];
+    
+    // Ensure IDs are integers to prevent injection
+    $ids = array_map('intval', $ids);
+    $idsList = implode(',', $ids);
 
+    $sql = "
+        SELECT 
+            p.id,
+            p.doc_entry,
+            p.doc_num,
+            p.item_code,
+            p.item_name,
+            p.itemuomname,
+            p.product_no,
+            p.product_name,
+            p.planned_qty,
+            p.item_planned_qty,
+            p.itemware_house
+        FROM production_order p
+        WHERE p.id IN ($idsList)
+    ";
 
-  
+    return $this->db->query($sql)->result();
+}
+
+// public function getItemsByDocEntryAndItemCode($items)
+// {
+//     if (empty($items)) return [];
+    
+//     // Build OR conditions for (doc_entry = X AND item_code = Y)
+//     $conditions = [];
+//     foreach ($items as $item) {
+//         $docEntry = $this->db->escape($item['doc_entry']);
+//         $itemCode = $this->db->escape($item['item_code']);
+//         $conditions[] = "(p.doc_entry = $docEntry AND p.item_code = $itemCode)";
+//     }
+    
+//     $whereClause = implode(' OR ', $conditions);
+
+//     $sql = "
+//         SELECT 
+//             p.id,
+//             p.doc_entry,
+//             p.doc_num,
+//             p.item_code,
+//             p.item_name,
+//             p.itemuomname,
+//             p.product_no,
+//             p.product_name,
+//             p.planned_qty,
+//             p.item_planned_qty,
+//             p.itemware_house
+//         FROM production_order p
+//         WHERE ($whereClause)
+//         AND p.itemware_house ='VSEMIFIN'
+//     ";
+
+//     return $this->db->query($sql)->result();
+// }
+
 
 
 
