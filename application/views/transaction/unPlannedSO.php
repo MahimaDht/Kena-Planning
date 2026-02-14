@@ -44,13 +44,13 @@ $this->load->view('include/header');
                                         </div>
                                     </div>
                                 
-                             <form class="form-group" action="<?php echo base_url()?>Transaction/saveUnPlannedSO" method="post">
+                             <form class="form-group" action="<?php echo base_url()?>Transaction/saveUnPlannedSO" method="post" id="unPlannedSOForm">
                                   <input type="hidden" name="<?= $this->security->get_csrf_token_name(); ?>" value="<?= $this->security->get_csrf_hash(); ?>">
                                 <input type="hidden" name="doc_entries" id="doc_entries">
                                    <table class="table table-striped" id="example123" Style="width:100%">
                                        <thead>
                                         <tr>
-                                              <th>Plan Seq</th>
+                                            <th width="100px">Plan Seq</th>
                                             <th>Doc Entry</th>
                                             <th>DocNum</th>
                                             <th>Doc Date</th>
@@ -69,10 +69,10 @@ $this->load->view('include/header');
                                    </thead>
                                    <tbody>
 
-                                   </tbody>
+                                           </tbody>
                                </table>
                             <div class="col-md-2">
-                               <button type="submit" class="btn btn-primary">Submit</button>
+                               <button type="button" class="btn btn-primary" onclick="showPreviewModal()">Submit</button>
                            </div>
                            </form>
 
@@ -87,6 +87,56 @@ $this->load->view('include/header');
            
        </main>
 <!---------modal --------------------->
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previewModalLabel">Preview - Records with Machine & Plan Sequence Assigned</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="previewForm" action="<?php echo base_url()?>Transaction/saveUnPlannedSO" method="post">
+                <input type="hidden" name="<?= $this->security->get_csrf_token_name(); ?>" value="<?= $this->security->get_csrf_hash(); ?>">
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered" id="previewTable">
+                        <thead>
+                            <tr>
+                                <th>Plan Seq</th>
+                                <th>Doc Entry</th>
+                                <th>DocNum</th>
+                                <th>Doc Date</th>
+                                <th>Card Name</th>
+                                <th>Product Code</th>
+                                <th>Product Name</th>
+                                <th>Raw Material</th>
+                                <th>UPS</th>
+                                <th>Qty</th>
+                                <th>Territory</th>
+                                <th>Inside Printing</th>
+                                <th>Printing Pending Days</th>
+                                <th>No of days from tracing days</th>
+                                <th>Machine</th>
+                                <th>Duplicate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="previewTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="noRecordsMessage" class="alert alert-warning" style="display:none;">
+                    No records found with both Machine and Plan Sequence assigned.
+                </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="finalSubmitBtn" onclick="submitForm()">Confirm & Submit</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php 
     $this->load->view('include/footer');
@@ -171,8 +221,6 @@ $(document).on('change', '.row-check', function () {
             checkedDocEntries.push(docEntry);
         }
 
-     
-
     } else {
 
         
@@ -200,6 +248,12 @@ function checkValidation(selectElement) {
     var row_id = id.split('_')[1];
     var machine = $('#machine_id').val();
    var machine_name = $('#machine_id option:selected').data('machine');
+
+   if(machine == ""){
+    alert("Please select machine");
+    selectElement.value = "";
+    return false;
+   }
    
     let size = selectElement.getAttribute('data-size');
     let gauge = selectElement.getAttribute('data-gauge');
@@ -253,6 +307,166 @@ function checkValidation(selectElement) {
         $('#rowMachine_'+row_id).val(machine);
         $('#rowMachineName_'+row_id).val(machine_name);
     }
+}
+
+/**
+ * Show preview modal with only records that have both machine and plan sequence assigned
+ */
+function showPreviewModal() {
+    // Get all rows from the DataTable
+    let previewData = [];
+    
+    // Iterate through all rows in the DataTable
+    table.rows().every(function() {
+        let rowData = this.data();
+        let rowNode = this.node();
+       
+        
+        // Check if this row has both plan sequence and machine assigned
+        // Assuming column 0 is Plan Seq and column 13 is Machine
+        let planSeq = $(rowNode).find('.planseq-select').val();
+      
+        let machine = $(rowNode).find('[id^="rowMachineName_"]').val();
+     
+
+        let ups = $(rowNode).find('.planseq-select').attr('data-ups');
+
+        // Only include rows where both plan sequence and machine are assigned
+        if (planSeq && planSeq !== "" && machine && machine !== "") {
+            
+            // Extract values for hidden inputs from the current row
+            let docEntryVal = $(rowNode).find('input[name="doc_entry[]"]').val();
+            let lineNumVal = $(rowNode).find('input[name="line_num[]"]').val();
+            let tracingDaysVal = $(rowNode).find('input[name="tracing_days[]"]').val();
+            let machineId = $(rowNode).find('input[name="machineid[]"]').val();
+
+            previewData.push({
+                planSeq: planSeq,
+                docEntry: rowData[1], // HTML content for column 1
+                docEntryVal: docEntryVal, // Value for hidden input
+                lineNumVal: lineNumVal,   // Value for hidden input
+                
+                docNum: rowData[2],
+                docDate: rowData[3],
+                cardName: rowData[4],
+                productCode: rowData[5],
+                productName: rowData[6],
+                rawMaterial: rowData[7],
+                ups: ups,
+                qty: rowData[8],
+                territory: rowData[9],
+                insidePrinting: rowData[10],
+                printingPendingDays: rowData[11],
+                tracingDays: rowData[12],
+                tracingDaysVal: tracingDaysVal, // Value for hidden input
+                machine: machine,
+                machineId: machineId // Value for hidden input
+            });
+        }
+    });
+    
+
+    // Sort the preview data by plan sequence number (ascending order)
+    previewData.sort(function(a, b) {
+        return parseInt(a.planSeq) - parseInt(b.planSeq);
+    });
+    
+    // Clear previous preview data
+    $('#previewTableBody').empty();
+    
+    if (previewData.length === 0) {
+        // Show warning message if no records found
+        $('#previewTable').hide();
+        $('#noRecordsMessage').show();
+        $('#finalSubmitBtn').prop('disabled', true);
+    } else {
+        // Populate the preview table
+        $('#previewTable').show();
+        $('#noRecordsMessage').hide();
+        $('#finalSubmitBtn').prop('disabled', false);
+        
+        previewData.forEach(function(row) {
+            let tr = `<tr data-planseq="${row.planSeq}" data-ups="${row.ups}">
+                <td>${row.planSeq}
+                    <input type="hidden" name="planseq[]" value="${row.planSeq}">
+                    <input type="hidden" name="doc_entry[]" value="${row.docEntryVal}">
+                    <input type="hidden" name="line_num[]" value="${row.lineNumVal}">
+                    <input type="hidden" name="tracing_days[]" value="${row.tracingDaysVal}">
+                    <input type="hidden" name="machineid[]" value="${row.machineId}">
+                </td>
+                <td>${row.docEntry}</td>
+                <td>${row.docNum}</td>
+                <td>${row.docDate}</td>
+                <td>${row.cardName}</td>
+                <td>${row.productCode}</td>
+                <td>${row.productName}</td>
+                <td>${row.rawMaterial}</td>
+                <td>${row.ups}</td>
+                <td>${row.qty}</td>
+                <td>${row.territory}</td>
+                <td>${row.insidePrinting}</td>
+                <td>${row.printingPendingDays}</td>
+                <td>${row.tracingDays}</td>
+                <td>${row.machine}</td>
+                <td><input type="number" name="usedups[]" class="form-control" value="1"/></td>
+            </tr>`;
+            $('#previewTableBody').append(tr);
+        });
+    }
+    
+    // Show the modal
+    var previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+    previewModal.show();
+}
+
+/**
+ * Submit the form after confirmation from preview modal
+ */
+function submitForm() {
+
+    let planSeqTotals = {};
+    let isValid = true;
+    let errorMessage = "";
+
+    $('#previewTableBody tr').each(function() {
+        let row = $(this);
+        let planSeq = row.data('planseq'); 
+        let totalUps = parseInt(row.data('ups'));
+        let usedUps = parseInt(row.find('input[name="usedups[]"]').val()) || 0;
+        
+        if(planSeq) {
+             if (!planSeqTotals[planSeq]) {
+                planSeqTotals[planSeq] = {
+                    total: totalUps,
+                    current: 0
+                };
+            }
+            planSeqTotals[planSeq].current += usedUps;
+        }
+    });
+
+    for (let planSeq in planSeqTotals) {
+         if (planSeqTotals[planSeq].current !== planSeqTotals[planSeq].total) {
+            isValid = false;
+            errorMessage += `For Plan Sequence ${planSeq}: Sum of used ups (${planSeqTotals[planSeq].current}) must equal total ups (${planSeqTotals[planSeq].total}).\n`;
+         }
+    }
+
+    if (!isValid) {
+         alert(errorMessage);
+         return;
+    }
+
+            // Close the modal
+            var previewModal = bootstrap.Modal.getInstance(document.getElementById('previewModal'));
+            if (previewModal) {
+                previewModal.hide();
+            }
+            
+            
+    // Submit the existing form
+    // Submit the new modal form
+    $('#previewForm').submit();
 }
 
 

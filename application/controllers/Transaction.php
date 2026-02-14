@@ -638,7 +638,7 @@ public function getUnPlanningList()
 
     $search = $_POST['search']['value'] ?? '';
 
-    $where = " WHERE h.DocStatus = 'O' and i.LineStatus!='C' and i.OpenQty>0 and (i.DHTInsidePrinting!='' OR i.DHTInsidePrinting IS NOT NULL)";
+    $where = " WHERE h.DocStatus = 'O' and i.LineStatus!='C' and i.OpenQty>0 and (i.DHTMulti='Yes' ) and i.is_planned='N'";
     if ($qty) {
         $where .= " AND i.OpenQty = " . $this->db->escape($qty);
     }
@@ -749,7 +749,7 @@ ORDER BY
              $row->ItemName,
             $row->OpenQty,
             '',
-            $row->DHTMulti,
+            $row->DHTInsidePrinting,
             '',
             $row->tracing_days . '<input type="hidden" name="tracing_days[]" value="' . $row->tracing_days . '">',
             '<input type="text" class="form-control" name="machine_name[]" id="rowMachineName_'.$x.'" readonly>
@@ -774,14 +774,38 @@ public function saveUnPlannedSO()
         redirect(base_url(), 'refresh');
     }
 
+    
     $planseq = $this->input->post('planseq');
     $doc_entry = $this->input->post('doc_entry');
     $line_num = $this->input->post('line_num');
     $tracing_days = $this->input->post('tracing_days');
     $machineid = $this->input->post('machineid');
+    $usedups = $this->input->post('usedups');
     $unique_no = date('YmdHis') . rand(10, 99);
 
     if (!empty($planseq)) {
+        // First, collect all DocEntry/LineNum pairs that will be inserted
+        $entries_to_delete = [];
+        foreach ($planseq as $key => $val) {
+            if ($val != '' && !empty($machineid[$key])) {
+                $entries_to_delete[] = [
+                    'DocEntry' => $doc_entry[$key],
+                    'LineNum' => $line_num[$key]
+                ];
+            }
+        }
+
+        // Delete existing draft records for these DocEntry/LineNum combinations
+        if (!empty($entries_to_delete)) {
+            foreach ($entries_to_delete as $entry) {
+                $this->db->where('DocEntry', $entry['DocEntry']);
+                $this->db->where('LineNum', $entry['LineNum']);
+                $this->db->where('is_planned', 'N');
+                $this->db->delete('plannedSO');
+            }
+        }
+
+        // Now insert new records
         $success = false;
         foreach ($planseq as $key => $val) {
             if ($val != '') {
@@ -792,6 +816,8 @@ public function saveUnPlannedSO()
                     'LineNum'     => $line_num[$key],
                     'tracingDays' => $tracing_days[$key],
                     'machine'     => $machineid[$key],
+                    'no_print'         => isset($usedups[$key]) ? $usedups[$key] : 1, // Store UPS value
+                    'is_planned'  => 'N',  // Temporary/draft state
                     'createdBy'   => $this->session->userdata('user_login_id'),
                     'createdAt'   => date('Y-m-d H:i:s')
                 ];
@@ -802,15 +828,16 @@ public function saveUnPlannedSO()
         }
 
         if ($success) {
-            $this->session->set_flashdata('success', 'Successfully Saved');
+            // Redirect directly to plannedSO page (no save message)
             redirect('Transaction/plannedSO/'.base64_encode($unique_no));
         } else {
-            $this->session->set_flashdata('error', 'Failed to save data');
+            $this->session->set_flashdata('error', 'No valid data to save');
             redirect('Transaction/unPlannedSO');
         }
+    } else {
+        $this->session->set_flashdata('error', 'No data selected');
+        redirect('Transaction/unPlannedSO');
     }
-   
-    
 }
 
 
@@ -829,12 +856,18 @@ public function plannedSO($plannedId)
             b.OpenQty,
             b.DHTMulti,
             c.machine_name,
+            d.UPS,
             d.itemName as raw_material,
-            d.ItemNo as raw_material_code
+            d.ItemNo as raw_material_code,
+            h.CardName,
+            h.DocNum
+            
         FROM plannedSO a
         INNER JOIN salesorderitems b 
             ON a.DocEntry = b.DocEntry 
         AND a.LineNum = b.LineNum
+        INNER JOIN salesorderheader h
+            ON a.DocEntry = h.DocEntry
         INNER JOIN machines c 
             ON a.machine = c.code
         INNER JOIN BOMItems d 
@@ -844,6 +877,8 @@ public function plannedSO($plannedId)
         AND a.is_planned = 'N' order by a.planSeq ASC";
 
     $data['plannedSO']=$this->db->query($sql)->result();
+    $data['printing_machines'] = $this->db->query("SELECT * FROM machines WHERE is_deleted='N' and printing_machine='Y'")->result();
+     
     $this->load->view('transaction/plannedSO',$data);
 }
 public function savePlanItems()
@@ -884,53 +919,115 @@ public function savePlanItems()
     }
 }
 
-public function createNewPlanningold()
-{
+// public function createNewPlanningold()
+// {
    
-    if ($this->session->userdata('user_login_access') != false) {
-        $selectedItems = $this->input->post('item');
-        if (empty($selectedItems)) {
-             $this->session->set_flashdata("error", "No items selected");   
-            redirect('transaction/Process');
-             return;
-        }
+//     if ($this->session->userdata('user_login_access') != false) {
+//         $selectedItems = $this->input->post('item');
+//         if (empty($selectedItems)) {
+//              $this->session->set_flashdata("error", "No items selected");   
+//             redirect('transaction/Process');
+//              return;
+//         }
 
-        $parsedItems = [];
-        foreach ($selectedItems as $item) {
-            $parts = explode('|', $item);
-            if (count($parts) === 2) {
-                $parsedItems[] = [
-                    'doc_entry' => $parts[0],
-                    'item_code' => $parts[1]
+//         $parsedItems = [];
+//         foreach ($selectedItems as $item) {
+//             $parts = explode('|', $item);
+//             if (count($parts) === 2) {
+//                 $parsedItems[] = [
+//                     'doc_entry' => $parts[0],
+//                     'item_code' => $parts[1]
+//                 ];
+//             }
+//         }
+
+//         if (empty($parsedItems)) {
+//              $this->session->set_flashdata("error", "Invalid items selected");   
+//             redirect('transaction/Process');
+//              return;
+//         }
+
+//         $data['selectedItems'] = $this->sales_model->getItemsByDocEntryAndItemCode($parsedItems);
+//         $data['machines'] = $this->master_model->getMachines();
+//        // $data['urldata'] = $this->Access_model->get_menu_data();
+         
+//         $this->load->view('Transaction/addnewPlanning', $data);
+
+//     } else {
+//         redirect(base_url(), 'refresh');
+//     }
+// }
+// public function createNewPlanning($encodedIds)
+// {
+//     $decodedIds = base64_decode($encodedIds);
+//     $ids = explode(',', $decodedIds);
+//     $data['selectedItems'] = $this->sales_model->getplanningProcessItemsByIds($ids);
+//     $data['machines'] = $this->master_model->getMachines();
+//     $this->load->view('Transaction/addnewPlanning', $data);
+// }
+
+
+
+public function save_plannedSO()
+{
+    if ($this->session->userdata('user_login_access') == false) {
+        redirect(base_url(), 'refresh');
+    }
+
+    $plannedIds = $this->input->post('planned_id');
+    $planDates  = $this->input->post('plan_date');   
+    $docNums    = $this->input->post('doc_entry');
+    $lineNums   = $this->input->post('line_num');
+    $planSeqs   = $this->input->post('planSeq');
+    $machine_ids = $this->input->post('machine_id');
+
+    if (!empty($plannedIds)) {
+        $this->db->trans_begin();
+
+        foreach ($plannedIds as $index => $id) {
+            $docNum   = isset($docNums[$index]) ? $docNums[$index] : null;
+            $lineNum  = isset($lineNums[$index]) ? $lineNums[$index] : null;
+            
+            // Get the sequence for this item and lookup the shared date for that group
+            $seq      = isset($planSeqs[$index]) ? trim($planSeqs[$index]) : null;
+            $machine_id = isset($machine_ids[$seq]) ? $machine_ids[$seq] : null;
+            $planDate = ($seq !== null && isset($planDates[$seq])) ? $planDates[$seq] : null;
+
+            if ($planDate && $id && $machine_id) {
+                $updateData = [
+                    'planning_date' => $planDate,
+                    'Is_planned'    => 'Y',
+                    'updatedAt'     => date('Y-m-d H:i:s'),
+                    'updatedBy'     => $this->session->userdata('user_name'),
+                    'machine'       => $machine_id
                 ];
+
+                $this->db->where('id', $id);
+                $this->db->where('DocEntry', $docNum);
+                $this->db->where('LineNum', $lineNum);
+                $this->db->update('plannedSO', $updateData);
+
+                // 🔹 Update Sales Order Items
+                $this->db->where('DocEntry', $docNum);
+                $this->db->where('LineNum', $lineNum);
+                $this->db->update('salesorderitems', ['is_planned' => 'Y']);
             }
         }
 
-        if (empty($parsedItems)) {
-             $this->session->set_flashdata("error", "Invalid items selected");   
-            redirect('transaction/Process');
-             return;
+        if ($this->db->trans_status() === FALSE) {
+            $this->db->trans_rollback();
+            $this->session->set_flashdata('error', 'Planning failed. Database transaction rolled back.');
+        } else {
+            $this->db->trans_commit();
+            $this->session->set_flashdata('success', 'Planning updated successfully.');
         }
 
-        $data['selectedItems'] = $this->sales_model->getItemsByDocEntryAndItemCode($parsedItems);
-        $data['machines'] = $this->master_model->getMachines();
-       // $data['urldata'] = $this->Access_model->get_menu_data();
-         
-        $this->load->view('Transaction/addnewPlanning', $data);
-
     } else {
-        redirect(base_url(), 'refresh');
+        $this->session->set_flashdata('error', 'No items found to save.');
     }
-}
-public function createNewPlanning($encodedIds)
-{
-    $decodedIds = base64_decode($encodedIds);
-    $ids = explode(',', $decodedIds);
-    $data['selectedItems'] = $this->sales_model->getplanningProcessItemsByIds($ids);
-    $data['machines'] = $this->master_model->getMachines();
-    $this->load->view('Transaction/addnewPlanning', $data);
-}
 
+    redirect('transaction/unPlannedSO');
+}
 
 
 
